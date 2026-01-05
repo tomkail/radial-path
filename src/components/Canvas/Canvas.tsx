@@ -103,7 +103,10 @@ export function Canvas() {
         dragState?.mode ?? null,
         dragState?.shapeId ?? null,
         theme,
-        zoom
+        zoom,
+        closedPath,
+        useStartPoint,
+        useEndPoint
       )
       
       // Measurements on top of everything

@@ -783,13 +783,19 @@ export interface TangentHandleInfo {
 export function computeTangentHandleInfo(
   circle: CircleShape,
   circles: CircleShape[],
-  shapeOrder: string[]
+  shapeOrder: string[],
+  closedPath: boolean = true,
+  useStartPoint: boolean = true,
+  useEndPoint: boolean = true
 ): TangentHandleInfo | null {
   const orderIndex = shapeOrder.indexOf(circle.id)
   if (orderIndex === -1) return null
   
   const n = shapeOrder.length
   if (n < 2) return null
+  
+  const isFirst = orderIndex === 0
+  const isLast = orderIndex === n - 1
   
   const prevIndex = (orderIndex - 1 + n) % n
   const nextIndex = (orderIndex + 1) % n
@@ -813,8 +819,20 @@ export function computeTangentHandleInfo(
   
   if (!entryTangent || !exitTangent) return null
   
-  const baseEntryAngle = entryTangent.angle2
-  const baseExitAngle = exitTangent.angle1
+  // Base angles from tangent computation
+  let baseEntryAngle = entryTangent.angle2
+  let baseExitAngle = exitTangent.angle1
+  
+  // For open paths with useStartPoint/useEndPoint enabled, use opposite side of the circle
+  // instead of calculating from the wrap-around tangent (which doesn't exist logically)
+  if (!closedPath && isFirst && useStartPoint) {
+    // First circle in open path: set entry angle opposite to exit angle
+    baseEntryAngle = baseExitAngle + Math.PI
+  }
+  if (!closedPath && isLast && useEndPoint) {
+    // Last circle in open path: set exit angle opposite to entry angle
+    baseExitAngle = baseEntryAngle + Math.PI
+  }
   
   const entryOffsetAmount = circle.entryOffset ?? 0
   const exitOffsetAmount = circle.exitOffset ?? 0
@@ -919,7 +937,7 @@ function renderTangentHandles(
   useStartPoint: boolean = true,
   useEndPoint: boolean = true
 ) {
-  const info = computeTangentHandleInfo(circle, circles, shapeOrder)
+  const info = computeTangentHandleInfo(circle, circles, shapeOrder, closedPath, useStartPoint, useEndPoint)
   if (!info) return
   
   // Determine if this is the first or last circle in the path
@@ -1054,7 +1072,7 @@ function renderGhostTangentHandles(
   useStartPoint: boolean = true,
   useEndPoint: boolean = true
 ) {
-  const info = computeTangentHandleInfo(circle, circles, shapeOrder)
+  const info = computeTangentHandleInfo(circle, circles, shapeOrder, closedPath, useStartPoint, useEndPoint)
   if (!info) return
   
   // Determine if this is the first or last circle in the path
@@ -1149,9 +1167,12 @@ export function getTangentHandleAt(
   circles: CircleShape[],
   shapeOrder: string[],
   point: Point,
-  tolerance: number
+  tolerance: number,
+  closedPath: boolean = true,
+  useStartPoint: boolean = true,
+  useEndPoint: boolean = true
 ): TangentHandleType {
-  const info = computeTangentHandleInfo(circle, circles, shapeOrder)
+  const info = computeTangentHandleInfo(circle, circles, shapeOrder, closedPath, useStartPoint, useEndPoint)
   if (!info) return null
   
   // Check handles first (they're on top)

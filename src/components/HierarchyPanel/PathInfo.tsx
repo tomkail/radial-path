@@ -31,10 +31,6 @@ export function PathInfo() {
     )
   }
   
-  const segmentCount = pathData.segments.length
-  const lineCount = pathData.segments.filter(s => s.type === 'line').length
-  const arcCount = pathData.segments.filter(s => s.type === 'arc').length
-  
   return (
     <div className={styles.pathInfo}>
       <div className={styles.pathInfoTitle}>PATH</div>
@@ -65,20 +61,6 @@ export function PathInfo() {
               →⊙
             </button>
           </div>
-        </div>
-        <div className={styles.pathInfoRow}>
-          <span>Total length:</span>
-          <span className={styles.pathInfoValue}>
-            {pathData.totalLength.toFixed(1)}
-          </span>
-        </div>
-        <div className={styles.pathInfoRow}>
-          <span>Segments:</span>
-          <span className={styles.pathInfoValue}>{segmentCount}</span>
-        </div>
-        <div className={styles.pathInfoRow}>
-          <span>Lines / Arcs:</span>
-          <span className={styles.pathInfoValue}>{lineCount} / {arcCount}</span>
         </div>
       </div>
     </div>

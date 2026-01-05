@@ -5,7 +5,7 @@ import {
   DEFAULT_ZOOM,
   MIN_ZOOM,
   MAX_ZOOM,
-  FIT_TO_RECT_PADDING
+  FIT_TO_RECT_PADDING_RATIO
 } from '../constants'
 
 interface ViewportState {
@@ -18,7 +18,7 @@ interface ViewportState {
   setZoom: (zoom: number, center?: Point) => void
   panBy: (delta: Point) => void
   zoomBy: (factor: number, center?: Point) => void
-  fitToRect: (bounds: Rect, canvasWidth: number, canvasHeight: number, padding?: number) => void
+  fitToRect: (bounds: Rect, canvasWidth: number, canvasHeight: number, paddingRatio?: number) => void
   reset: () => void
 }
 
@@ -63,12 +63,16 @@ export const useViewportStore = create<ViewportState>()(
         state.setZoom(newZoom, center)
       },
       
-      fitToRect: (bounds, canvasWidth, canvasHeight, padding = FIT_TO_RECT_PADDING) => {
+      fitToRect: (bounds, canvasWidth, canvasHeight, paddingRatio = FIT_TO_RECT_PADDING_RATIO) => {
         if (bounds.width <= 0 || bounds.height <= 0) return
         
+        // Calculate proportional padding based on canvas dimensions
+        const paddingX = canvasWidth * paddingRatio
+        const paddingY = canvasHeight * paddingRatio
+        
         // Calculate the zoom needed to fit the bounds
-        const availableWidth = canvasWidth - padding * 2
-        const availableHeight = canvasHeight - padding * 2
+        const availableWidth = canvasWidth - paddingX * 2
+        const availableHeight = canvasHeight - paddingY * 2
         
         const scaleX = availableWidth / bounds.width
         const scaleY = availableHeight / bounds.height

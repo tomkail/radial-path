@@ -103,6 +103,9 @@ export function useCanvasInteraction(
   const shapes = useDocumentStore(state => state.shapes)
   const shapeOrder = useDocumentStore(state => state.shapeOrder)
   const globalStretch = useDocumentStore(state => state.globalStretch)
+  const closedPath = useDocumentStore(state => state.closedPath)
+  const useStartPoint = useDocumentStore(state => state.useStartPoint)
+  const useEndPoint = useDocumentStore(state => state.useEndPoint)
   const updateShape = useDocumentStore(state => state.updateShape)
   const removeShape = useDocumentStore(state => state.removeShape)
   const reorderShapes = useDocumentStore(state => state.reorderShapes)
@@ -128,7 +131,6 @@ export function useCanvasInteraction(
   const dragState = useSelectionStore(state => state.dragState)
   
   const snapToGridEnabled = useSettingsStore(state => state.snapToGrid)
-  const gridSize = useSettingsStore(state => state.gridSize)
   
   // Track space key state for panning
   const spaceKeyHeld = useRef(false)
@@ -171,7 +173,7 @@ export function useCanvasInteraction(
     // First check tangent handles on selected shapes (highest priority)
     for (const shape of shapes) {
       if (shape.type === 'circle' && selectedIds.includes(shape.id)) {
-        const tangentHandle = getTangentHandleAt(shape, expandedShapes, expandedOrder, worldPos, handleTolerance)
+        const tangentHandle = getTangentHandleAt(shape, expandedShapes, expandedOrder, worldPos, handleTolerance, closedPath, useStartPoint, useEndPoint)
         if (tangentHandle) {
           const hoverTarget: HoverTarget = { 
             type: tangentHandle as 'entry-offset' | 'exit-offset' | 'entry-length' | 'exit-length' | 'entry-offset-slot' | 'exit-offset-slot' | 'entry-length-slot' | 'exit-length-slot', 
@@ -518,7 +520,7 @@ export function useCanvasInteraction(
         if (tangentHandle) {
           const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
           const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder)
-          const info = computeTangentHandleInfo(shape, expandedShapes, expandedOrder)
+          const info = computeTangentHandleInfo(shape, expandedShapes, expandedOrder, closedPath, useStartPoint, useEndPoint)
           
           let mode: DragMode = null
           let startAngle = 0
@@ -647,7 +649,7 @@ export function useCanvasInteraction(
         while (newOffset > Math.PI) newOffset -= Math.PI * 2
         while (newOffset < -Math.PI) newOffset += Math.PI * 2
         
-        newOffset = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, newOffset))
+        newOffset = Math.max(-Math.PI, Math.min(Math.PI, newOffset))
         
         // Snap to angular increments when snapping is enabled or shift is held
         if (snapToGridEnabled || e.shiftKey) {
@@ -665,7 +667,7 @@ export function useCanvasInteraction(
       } else if (dragState.mode === 'tangent-entry-length' || dragState.mode === 'tangent-exit-length') {
         const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
         const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder)
-        const info = computeTangentHandleInfo(shape, expandedShapes, expandedOrder)
+        const info = computeTangentHandleInfo(shape, expandedShapes, expandedOrder, closedPath, useStartPoint, useEndPoint)
         
         if (info) {
           const isEntry = dragState.mode === 'tangent-entry-length'
@@ -732,7 +734,7 @@ export function useCanvasInteraction(
     setHoverTarget(hit.hoverTarget)
     setHovered(hit.shape?.id ?? null)
     canvas.style.cursor = getCursor(hit.hoverTarget, false)
-  }, [canvasRef, getWorldPos, dragState, shapes, shapeOrder, updateShape, snapToGridEnabled, gridSize, findTargetAt, getCursor, setHovered, setHoverTarget, setEntryOffset, setExitOffset, setEntryTangentLength, setExitTangentLength])
+  }, [canvasRef, getWorldPos, dragState, shapes, shapeOrder, updateShape, snapToGridEnabled, findTargetAt, getCursor, setHovered, setHoverTarget, setEntryOffset, setExitOffset, setEntryTangentLength, setExitTangentLength])
   
   // Mouse up handler
   const handleMouseUp = useCallback(() => {

@@ -222,7 +222,10 @@ export function renderHandleValues(
   dragMode: DragMode,
   dragShapeId: string | null,
   theme: CanvasTheme,
-  zoom: number
+  zoom: number,
+  closedPath: boolean = true,
+  useStartPoint: boolean = true,
+  useEndPoint: boolean = true
 ) {
   const uiScale = 1 / zoom
 
@@ -253,7 +256,7 @@ export function renderHandleValues(
   if (hoverTarget?.type?.includes('offset') || 
       hoverTarget?.type?.includes('length') ||
       dragMode?.includes('tangent')) {
-    tangentInfo = computeTangentHandleInfo(shape, expandedShapes, expandedOrder)
+    tangentInfo = computeTangentHandleInfo(shape, expandedShapes, expandedOrder, closedPath, useStartPoint, useEndPoint)
   }
 
   // Get value info for the current interaction

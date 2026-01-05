@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Shape, SerpentineDocument, CircleShape } from '../types'
-import { createCircle } from '../geometry/shapes/Circle'
 
 interface DocumentState {
   // State
@@ -54,16 +53,16 @@ const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 
     id: crypto.randomUUID(),
     type: 'circle',
     name: 'Circle 1',
-    center: { x: 162.35, y: -67.33 },
-    radius: 120.81,
+    center: { x: 0, y: -80 },
+    radius: 120,
     wrapSide: 'left'
   }
   const c2: CircleShape = {
     id: crypto.randomUUID(),
     type: 'circle',
     name: 'Circle 2',
-    center: { x: 400, y: -120 },
-    radius: 50,
+    center: { x: 210, y: -140 },
+    radius: 60,
     wrapSide: 'right',
     entryOffset: -Math.PI / 2
   }
@@ -71,17 +70,18 @@ const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 
     id: crypto.randomUUID(),
     type: 'circle',
     name: 'Circle 3',
-    center: { x: 340, y: 120 },
-    radius: 112.76,
+    center: { x: 180, y: 110 },
+    radius: 140,
     wrapSide: 'right'
   }
   const c4: CircleShape = {
     id: crypto.randomUUID(),
     type: 'circle',
     name: 'Circle 4',
-    center: { x: 100, y: 180 },
-    radius: 50,
-    wrapSide: 'right'
+    center: { x: 0, y: 130 },
+    radius: 120,
+    wrapSide: 'right',
+    entryOffset: -Math.PI / 2
   }
   
   return {

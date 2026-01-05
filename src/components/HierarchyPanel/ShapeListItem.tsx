@@ -255,8 +255,8 @@ export function ShapeListItem({ shape }: ShapeListItemProps) {
                 <span className={styles.tensionLabelSmall}>Offset</span>
                 <input
                   type="range"
-                  min="-90"
-                  max="90"
+                  min="-180"
+                  max="180"
                   value={Math.round(entryOffsetDegrees)}
                   onChange={handleEntryOffsetChange}
                   className={styles.tensionSliderSmall}
@@ -308,8 +308,8 @@ export function ShapeListItem({ shape }: ShapeListItemProps) {
                 <span className={styles.tensionLabelSmall}>Offset</span>
                 <input
                   type="range"
-                  min="-90"
-                  max="90"
+                  min="-180"
+                  max="180"
                   value={Math.round(exitOffsetDegrees)}
                   onChange={handleExitOffsetChange}
                   className={styles.tensionSliderSmall}

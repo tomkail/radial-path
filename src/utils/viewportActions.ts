@@ -32,7 +32,7 @@ export function fitToView(silent = false): boolean {
     return false
   }
   
-  fitToRect(bounds, width, height, 60)
+  fitToRect(bounds, width, height)
   if (!silent) info('Fit to view')
   return true
 }

@@ -257,16 +257,25 @@ export function computeTangentHull(
     const nextCircle = orderedCircles[(i + 1) % n]
     
     // Tangent from previous circle TO this circle
-    // For first circle with useStartPoint, use the wrap-around tangent (n-1, from last to first)
     const prevTangentIndex = (i - 1 + n) % n
     const prevTangent = tangents[prevTangentIndex]!
     // Tangent from this circle TO next circle
-    // For last circle with useEndPoint, use the wrap-around tangent (n-1, from last to first)
     const currTangent = tangents[i]!
     
     // Base entry/exit angles from tangent computation
     let entryAngle = prevTangent.angle2
     let exitAngle = currTangent.angle1
+    
+    // For open paths with useStartPoint/useEndPoint enabled, use opposite side of the circle
+    // instead of calculating from the wrap-around tangent (which doesn't exist logically)
+    if (!closed && isFirst && useStartPoint) {
+      // First circle in open path: set entry angle opposite to exit angle
+      entryAngle = exitAngle + Math.PI
+    }
+    if (!closed && isLast && useEndPoint) {
+      // Last circle in open path: set exit angle opposite to entry angle
+      exitAngle = entryAngle + Math.PI
+    }
     
     // Apply separate entry/exit offsets to this circle's contact points
     const entryOffsetAmount = circle.entryOffset ?? 0

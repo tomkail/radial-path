@@ -80,6 +80,8 @@ export function HierarchyPanel() {
   
   return (
     <div className={styles.panel}>
+      <PathInfo />
+      
       <div className={styles.header}>
         <span className={styles.title}>SHAPES</span>
       </div>
@@ -104,8 +106,6 @@ export function HierarchyPanel() {
       <button className={styles.addButton} onClick={handleAddCircle}>
         + Add Circle
       </button>
-      
-      <PathInfo />
     </div>
   )
 }
