@@ -71,8 +71,20 @@ export const DIRECTION_RING_RADIUS = 0.81    // Where the chevrons are drawn
 
 export const DOT_SIZE = 6                    // Diameter of each dot
 export const DOT_SPACING = 10                // Center-to-center spacing
-export const DOT_GRID_Y_OFFSET = -4          // Vertical offset from center
+export const DOT_GRID_Y_OFFSET = 0           // Vertical offset from center (0 = centered)
 export const MAX_DOT_COLS = 4                // Maximum dots per row
+
+// ============================================================================
+// UI ELEMENT VISIBILITY (fade out when zoomed out)
+// ============================================================================
+
+// Elements fade out when their screen size exceeds this fraction of the circle's screen diameter
+export const UI_FADE_START_RATIO = 0.25      // Start fading at 25% of circle size
+export const UI_FADE_END_RATIO = 0.5         // Fully hidden at 50% of circle size
+
+// The direction ring spans a large visual area (many chevrons around the circle)
+// This multiplier accounts for the visual density of the ring
+export const DIRECTION_RING_SIZE_MULTIPLIER = 3
 
 // ============================================================================
 // DIRECTION RING CHEVRONS

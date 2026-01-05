@@ -16,7 +16,7 @@ import {
   type TangentHandleType 
 } from './renderers/ShapeRenderer'
 import { snapPointToGrid, snapToGrid, distance, angle } from '../../geometry/math'
-import { expandMirroredCircles, findPathSegmentAt, calculateNonOverlappingRadius } from '../../geometry/path'
+import { expandMirroredCircles, findPathSegmentAt, findClosestPointOnPath, calculateNonOverlappingRadius } from '../../geometry/path'
 import type { Point, CircleShape, DragMode, HoverTarget } from '../../types'
 import {
   HANDLE_TOLERANCE,
@@ -185,7 +185,8 @@ export function useCanvasInteraction(
         }
       }
       // Check direction ring (middle zone - for toggling direction)
-      if (isOnDirectionRing(shape, worldPos)) {
+      // Direction ring is not interactable when zoomed out too far
+      if (isOnDirectionRing(shape, worldPos, zoom)) {
         return { 
           shape, 
           hoverTarget: { type: 'direction-ring', shapeId: shape.id }, 
@@ -249,8 +250,8 @@ export function useCanvasInteraction(
       return
     }
     
-    // Check if click is on a path segment
-    const pathHit = findPathSegmentAt(circles, shapeOrder, worldPos, PATH_HIT_TOLERANCE / zoom, globalStretch)
+    // Check if click is on a path segment (connector lines/beziers)
+    const pathHit = findPathSegmentAt(circles, shapeOrder, worldPos, PATH_HIT_TOLERANCE / zoom, globalStretch, closedPath, useStartPoint, useEndPoint)
     
     if (pathHit) {
       // Calculate non-overlapping radius (reuse the existing circles array from scope)
@@ -271,8 +272,33 @@ export function useCanvasInteraction(
       
       // Select the new circle
       select(newCircle.id, false)
+      return
     }
-  }, [canvasRef, getWorldPos, findTargetAt, shapes, circles, shapeOrder, globalStretch, zoom, insertShapeAt, select])
+    
+    // Double-click on empty space - find closest point on entire path
+    const closestPathHit = findClosestPointOnPath(circles, shapeOrder, worldPos, globalStretch, closedPath, useStartPoint, useEndPoint)
+    
+    if (closestPathHit) {
+      // Calculate non-overlapping radius at the closest path point
+      const radius = calculateNonOverlappingRadius(closestPathHit.point, circles)
+      
+      // Create new circle at the closest point on the path
+      const circleCount = shapes.filter(s => s.type === 'circle').length
+      const newCircle = createCircle(
+        closestPathHit.point,
+        radius,
+        undefined,
+        `Circle ${circleCount + 1}`
+      )
+      
+      // Insert at the correct position in the path order
+      const insertIndex = closestPathHit.fromCircleIndex + 1
+      insertShapeAt(newCircle, insertIndex)
+      
+      // Select the new circle
+      select(newCircle.id, false)
+    }
+  }, [canvasRef, getWorldPos, findTargetAt, shapes, circles, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, zoom, insertShapeAt, select])
 
   // Mouse down handler
   const handleMouseDown = useCallback((e: MouseEvent) => {

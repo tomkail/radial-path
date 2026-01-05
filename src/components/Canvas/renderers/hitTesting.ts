@@ -19,8 +19,83 @@ import {
   ACTION_ICON_SPACING,
   HANDLE_TOLERANCE,
   SLOT_TOLERANCE_FACTOR,
-  TANGENT_DISTANCE_FACTOR
+  TANGENT_DISTANCE_FACTOR,
+  CHEVRON_MAX_SCREEN_SIZE,
+  UI_FADE_START_RATIO,
+  UI_FADE_END_RATIO,
+  DIRECTION_RING_SIZE_MULTIPLIER
 } from '../../../constants'
+
+// ============================================================================
+// UI ELEMENT VISIBILITY (fade based on zoom)
+// ============================================================================
+
+/**
+ * Calculate the width of the dot grid based on number of items
+ * Grid width = (cols - 1) * spacing + dot_size
+ */
+function calculateDotGridWidth(total: number): number {
+  if (total <= 0) return 0
+  const cols = Math.min(total, MAX_DOT_COLS)
+  return (cols - 1) * DOT_SPACING + DOT_SIZE
+}
+
+/**
+ * Calculate the opacity for index dots based on zoom level and circle radius
+ * Dots fade out when the dot grid becomes larger than 50% of the circle's visual size
+ * Returns a value from 0 (invisible) to 1 (fully visible)
+ */
+export function getIndexDotOpacity(radius: number, zoom: number, totalShapes: number = MAX_DOT_COLS): number {
+  // Dot grid width in screen pixels (constant, doesn't change with zoom)
+  const gridWidthScreen = calculateDotGridWidth(totalShapes)
+  // Circle diameter in screen pixels: 2 * radius * zoom
+  const circleDiameterScreen = 2 * radius * zoom
+  // Ratio of grid size to circle size
+  const ratio = gridWidthScreen / circleDiameterScreen
+  
+  // Fade from fully visible to invisible as ratio goes from START to END
+  if (ratio <= UI_FADE_START_RATIO) return 1
+  if (ratio >= UI_FADE_END_RATIO) return 0
+  
+  // Linear interpolation between thresholds
+  return 1 - (ratio - UI_FADE_START_RATIO) / (UI_FADE_END_RATIO - UI_FADE_START_RATIO)
+}
+
+/**
+ * Calculate the opacity for direction ring (chevrons) based on zoom level and circle radius
+ * Direction arrows fade out when they become too prominent relative to the circle
+ * The multiplier accounts for the visual density of many chevrons around the ring
+ * Returns a value from 0 (invisible) to 1 (fully visible)
+ */
+export function getDirectionRingOpacity(radius: number, zoom: number): number {
+  // Effective size accounts for the visual density of the chevron ring
+  // The ring has many chevrons so it appears larger than individual chevron size
+  const effectiveSize = CHEVRON_MAX_SCREEN_SIZE * DIRECTION_RING_SIZE_MULTIPLIER
+  // Circle diameter in screen pixels: 2 * radius * zoom
+  const circleDiameterScreen = 2 * radius * zoom
+  const ratio = effectiveSize / circleDiameterScreen
+  
+  // Fade from fully visible to invisible as ratio goes from START to END
+  if (ratio <= UI_FADE_START_RATIO) return 1
+  if (ratio >= UI_FADE_END_RATIO) return 0
+  
+  // Linear interpolation between thresholds
+  return 1 - (ratio - UI_FADE_START_RATIO) / (UI_FADE_END_RATIO - UI_FADE_START_RATIO)
+}
+
+/**
+ * Check if index dots are interactable at current zoom/radius
+ */
+export function areIndexDotsInteractable(radius: number, zoom: number, totalShapes: number = MAX_DOT_COLS): boolean {
+  return getIndexDotOpacity(radius, zoom, totalShapes) > 0
+}
+
+/**
+ * Check if direction ring is interactable at current zoom/radius
+ */
+export function isDirectionRingInteractable(radius: number, zoom: number): boolean {
+  return getDirectionRingOpacity(radius, zoom) > 0
+}
 
 // ============================================================================
 // SHAPE ZONE HIT TESTING
@@ -63,12 +138,20 @@ export function isInBodyZone(
 /**
  * Check if a point is in the direction ring zone
  * Zone is between DIRECTION_RING_INNER and DIRECTION_RING_OUTER of radius
+ * Returns false if the direction ring has faded out due to zoom level
  */
 export function isOnDirectionRing(
   circle: CircleShape,
-  point: Point
+  point: Point,
+  zoom: number = 1
 ): boolean {
   const { center, radius } = circle
+  
+  // Check if direction ring is interactable at this zoom level
+  if (!isDirectionRingInteractable(radius, zoom)) {
+    return false
+  }
+  
   const dx = point.x - center.x
   const dy = point.y - center.y
   const dist = Math.sqrt(dx * dx + dy * dy)
@@ -194,6 +277,7 @@ export function getDotPosition(
 /**
  * Check if a point is on an index dot
  * Returns the dot index if hit, or null
+ * Returns null if index dots have faded out due to zoom level
  */
 export function getIndexDotAt(
   circle: CircleShape,
@@ -201,6 +285,11 @@ export function getIndexDotAt(
   totalShapes: number,
   zoom: number
 ): number | null {
+  // Check if index dots are interactable at this zoom level
+  if (!areIndexDotsInteractable(circle.radius, zoom, totalShapes)) {
+    return null
+  }
+  
   const uiScale = 1 / zoom
   const hitRadius = (DOT_SIZE / 2 + 2) * uiScale // Slightly larger hit area
   

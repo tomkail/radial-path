@@ -8,16 +8,38 @@ import type { HoverTarget, DragMode } from '../../types'
 
 /**
  * Generate a "reverse" cursor SVG for the direction toggle
- * Two curved arrows forming a circular swap/reverse icon
+ * Two curved arrows chasing each other around a circle - a clear "flip direction" icon
  */
 function getReverseCursor(): string {
+  // Create two curved arrows going in opposite directions around a circle
+  // This clearly conveys "reverse/flip the circular direction"
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-    <!-- Outer stroke for visibility -->
-    <path d="M9 3 L5 7 L9 11 M5 7 C5 7 5 12 12 12 M15 21 L19 17 L15 13 M19 17 C19 17 19 12 12 12" 
-          fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- Inner stroke -->
-    <path d="M9 3 L5 7 L9 11 M5 7 C5 7 5 12 12 12 M15 21 L19 17 L15 13 M19 17 C19 17 19 12 12 12" 
-          fill="none" stroke="black" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Top arc with arrow (clockwise arrow on top) -->
+    <g>
+      <!-- Outer stroke for visibility -->
+      <path d="M19 8 A7 7 0 0 0 5 8" 
+            fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
+      <path d="M19 8 L16 4 M19 8 L22 5" 
+            fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Inner stroke -->
+      <path d="M19 8 A7 7 0 0 0 5 8" 
+            fill="none" stroke="black" stroke-width="2" stroke-linecap="round"/>
+      <path d="M19 8 L16 4 M19 8 L22 5" 
+            fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <!-- Bottom arc with arrow (counter-clockwise arrow on bottom) -->
+    <g>
+      <!-- Outer stroke for visibility -->
+      <path d="M5 16 A7 7 0 0 0 19 16" 
+            fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
+      <path d="M5 16 L8 20 M5 16 L2 19" 
+            fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Inner stroke -->
+      <path d="M5 16 A7 7 0 0 0 19 16" 
+            fill="none" stroke="black" stroke-width="2" stroke-linecap="round"/>
+      <path d="M5 16 L8 20 M5 16 L2 19" 
+            fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
   </svg>`
   
   return `url('data:image/svg+xml,${encodeURIComponent(svg)}') 12 12, pointer`

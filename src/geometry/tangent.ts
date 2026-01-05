@@ -81,11 +81,13 @@ export function externalTangent(
  * on the first circle and continue from the intersection point on the second circle.
  * 
  * @param side - determines which of the two internal tangents to use
+ * @param useEntryIntersection - if true, use the "entry" intersection instead of "exit" (for mirrored shapes)
  */
 export function internalTangent(
   c1: Point, r1: number,
   c2: Point, r2: number,
-  side: 'left' | 'right' = 'right'
+  side: 'left' | 'right' = 'right',
+  useEntryIntersection: boolean = false
 ): TangentResult | null {
   const d = distance(c1, c2)
   
@@ -104,6 +106,7 @@ export function internalTangent(
     // Choose the appropriate intersection point based on 'side'
     // For internal tangent with 'right' side, we want the intersection point
     // that's on the right when looking from c1 to c2
+    // For mirrored shapes, we flip the selection (use entry instead of exit)
     let intersectionPoint: Point
     
     if (intersections.length === 1) {
@@ -118,8 +121,13 @@ export function internalTangent(
       // Cross product to determine which side each intersection is on
       const cross0 = dx * (intersections[0].y - c1.y) - dy * (intersections[0].x - c1.x)
       
+      // Determine effective side (flip for mirrored shapes)
+      const effectiveSide = useEntryIntersection 
+        ? (side === 'right' ? 'left' : 'right')
+        : side
+      
       // Positive cross = left side, negative cross = right side
-      if (side === 'right') {
+      if (effectiveSide === 'right') {
         intersectionPoint = cross0 < 0 ? intersections[0] : intersections[1]
       } else {
         intersectionPoint = cross0 > 0 ? intersections[0] : intersections[1]
@@ -183,10 +191,12 @@ export function internalTangent(
  * 
  * @param fromDir - direction path travels around first circle ('cw' or 'ccw')
  * @param toDir - direction path travels around second circle
+ * @param fromIsMirror - if true, the first circle is a mirrored copy (use entry intersection instead of exit)
  */
 export function getTangentForDirections(
   c1: Point, r1: number, fromDir: 'cw' | 'ccw',
-  c2: Point, r2: number, toDir: 'cw' | 'ccw'
+  c2: Point, r2: number, toDir: 'cw' | 'ccw',
+  fromIsMirror: boolean = false
 ): TangentResult | null {
   const sameDirection = fromDir === toDir
   
@@ -200,6 +210,7 @@ export function getTangentForDirections(
     return externalTangent(c1, r1, c2, r2, side)
   } else {
     // Opposite directions: use internal (crossing) tangent
-    return internalTangent(c1, r1, c2, r2, side)
+    // For mirrored shapes, use entry intersection instead of exit
+    return internalTangent(c1, r1, c2, r2, side, fromIsMirror)
   }
 }

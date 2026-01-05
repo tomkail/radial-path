@@ -8,6 +8,9 @@ interface DocumentSnapshot {
   shapes: Shape[]
   shapeOrder: string[]
   globalStretch: number
+  closedPath: boolean
+  useStartPoint: boolean
+  useEndPoint: boolean
 }
 
 interface HistoryState {
@@ -60,7 +63,10 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     const currentSnapshot: DocumentSnapshot = {
       shapes: docStore.shapes,
       shapeOrder: docStore.shapeOrder,
-      globalStretch: docStore.globalStretch
+      globalStretch: docStore.globalStretch,
+      closedPath: docStore.closedPath,
+      useStartPoint: docStore.useStartPoint,
+      useEndPoint: docStore.useEndPoint
     }
     
     // Get the state to restore
@@ -74,7 +80,10 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     useDocumentStore.setState({
       shapes: snapshotToRestore.shapes,
       shapeOrder: snapshotToRestore.shapeOrder,
-      globalStretch: snapshotToRestore.globalStretch
+      globalStretch: snapshotToRestore.globalStretch,
+      closedPath: snapshotToRestore.closedPath,
+      useStartPoint: snapshotToRestore.useStartPoint,
+      useEndPoint: snapshotToRestore.useEndPoint
     })
     
     // Update history stacks
@@ -94,7 +103,10 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     const currentSnapshot: DocumentSnapshot = {
       shapes: docStore.shapes,
       shapeOrder: docStore.shapeOrder,
-      globalStretch: docStore.globalStretch
+      globalStretch: docStore.globalStretch,
+      closedPath: docStore.closedPath,
+      useStartPoint: docStore.useStartPoint,
+      useEndPoint: docStore.useEndPoint
     }
     
     // Get the state to restore
@@ -108,7 +120,10 @@ export const useHistoryStore = create<HistoryState>()((set, get) => ({
     useDocumentStore.setState({
       shapes: snapshotToRestore.shapes,
       shapeOrder: snapshotToRestore.shapeOrder,
-      globalStretch: snapshotToRestore.globalStretch
+      globalStretch: snapshotToRestore.globalStretch,
+      closedPath: snapshotToRestore.closedPath,
+      useStartPoint: snapshotToRestore.useStartPoint,
+      useEndPoint: snapshotToRestore.useEndPoint
     })
     
     // Update history stacks
@@ -134,7 +149,10 @@ function captureSnapshot(): DocumentSnapshot {
   return {
     shapes: structuredClone(docStore.shapes), // Deep clone (faster than JSON.parse/stringify)
     shapeOrder: [...docStore.shapeOrder],
-    globalStretch: docStore.globalStretch
+    globalStretch: docStore.globalStretch,
+    closedPath: docStore.closedPath,
+    useStartPoint: docStore.useStartPoint,
+    useEndPoint: docStore.useEndPoint
   }
 }
 
@@ -148,6 +166,9 @@ let pendingSnapshot: DocumentSnapshot | null = null
 let lastShapesRef: Shape[] | null = null
 let lastOrderRef: string[] | null = null
 let lastStretch: number | null = null
+let lastClosedPath: boolean | null = null
+let lastUseStartPoint: boolean | null = null
+let lastUseEndPoint: boolean | null = null
 
 // Initialize the subscription
 export function initHistoryTracking() {
@@ -157,6 +178,9 @@ export function initHistoryTracking() {
   lastShapesRef = docStore.shapes
   lastOrderRef = docStore.shapeOrder
   lastStretch = docStore.globalStretch
+  lastClosedPath = docStore.closedPath
+  lastUseStartPoint = docStore.useStartPoint
+  lastUseEndPoint = docStore.useEndPoint
   
   // Subscribe to document state changes (standard Zustand subscribe)
   const unsubscribe = useDocumentStore.subscribe((state) => {
@@ -169,9 +193,12 @@ export function initHistoryTracking() {
     const shapesChanged = state.shapes !== lastShapesRef
     const orderChanged = state.shapeOrder !== lastOrderRef
     const stretchChanged = state.globalStretch !== lastStretch
+    const closedPathChanged = state.closedPath !== lastClosedPath
+    const useStartPointChanged = state.useStartPoint !== lastUseStartPoint
+    const useEndPointChanged = state.useEndPoint !== lastUseEndPoint
     
     // If no references changed, no state changed
-    if (!shapesChanged && !orderChanged && !stretchChanged) return
+    if (!shapesChanged && !orderChanged && !stretchChanged && !closedPathChanged && !useStartPointChanged && !useEndPointChanged) return
     
     // Capture the previous state immediately if we haven't yet for this change batch
     if (!pendingSnapshot && lastSnapshot) {
@@ -194,6 +221,9 @@ export function initHistoryTracking() {
       lastShapesRef = state.shapes
       lastOrderRef = state.shapeOrder
       lastStretch = state.globalStretch
+      lastClosedPath = state.closedPath
+      lastUseStartPoint = state.useStartPoint
+      lastUseEndPoint = state.useEndPoint
       debounceTimer = null
     }, HISTORY_DEBOUNCE_MS)
   })

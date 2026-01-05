@@ -26,11 +26,15 @@ export {
   getIndexDotAt,
   computeTangentHandleInfo,
   getTangentHandleAt,
+  getIndexDotOpacity,
+  getDirectionRingOpacity,
+  areIndexDotsInteractable,
+  isDirectionRingInteractable,
   type TangentHandleInfo,
   type TangentHandleType
 } from './hitTesting'
 
-import { getDotPosition, computeTangentHandleInfo } from './hitTesting'
+import { getDotPosition, computeTangentHandleInfo, getIndexDotOpacity, getDirectionRingOpacity } from './hitTesting'
 
 /**
  * Render all shapes on the canvas
@@ -247,12 +251,12 @@ function renderCircle(
   // Draw direction ring (accent color only when selected or hovered)
   drawDirectionRing(ctx, circle, theme, zoom, isRingHovered, false, isSelected)
   
-  // Draw index dot grid (always visible, shows position in sequence)
+  // Draw index dot grid (fades out when zoomed too far out)
   if (shapeIndex !== undefined && totalShapes !== undefined && totalShapes > 0) {
     const hoveredDotIndex = hoverTarget?.type === 'index-dot' && hoverTarget.shapeId === circle.id 
       ? hoverTarget.dotIndex 
       : null
-    drawIndexDotGrid(ctx, center, shapeIndex, totalShapes, theme, zoom, isSelected, hoveredDotIndex)
+    drawIndexDotGrid(ctx, center, radius, shapeIndex, totalShapes, theme, zoom, isSelected, hoveredDotIndex)
   }
   
   // Draw action row (mirror + delete icons) when selected, positioned below the circle
@@ -267,6 +271,7 @@ function renderCircle(
  * Shows path direction with many chevron marks around the full perimeter
  * Clickable to reverse direction
  * Positioned close to the edge (at 85% of radius)
+ * Fades out when zoomed too far out (chevrons become too large relative to circle)
  * 
  * Color scheme:
  * - Selected circles: accent color
@@ -286,10 +291,17 @@ function drawDirectionRing(
   const { center, radius, direction } = circle
   const pathGoesClockwise = (direction ?? 'cw') === 'cw'
   
+  // Calculate opacity based on zoom level and circle radius
+  const opacity = getDirectionRingOpacity(radius, zoom)
+  if (opacity <= 0) return  // Fully faded out, skip rendering
+  
   const uiScale = 1 / zoom
   const ringRadius = radius * DIRECTION_RING_RADIUS
   
   ctx.save()
+  
+  // Apply fade opacity (multiplied with any existing globalAlpha for ghost mode)
+  ctx.globalAlpha = ctx.globalAlpha * opacity
   
   // Determine colors based on state
   // Accent color only for selected or hovered, otherwise monochrome
@@ -415,10 +427,12 @@ function drawActionRow(
 /**
  * Draw the index dot grid
  * Shows a grid of dots where highlighted dot = this circle's position
+ * Fades out when zoomed too far out (dots become too large relative to circle)
  */
 function drawIndexDotGrid(
   ctx: CanvasRenderingContext2D,
   center: Point,
+  radius: number,
   index: number,
   total: number,
   theme: CanvasTheme,
@@ -428,10 +442,15 @@ function drawIndexDotGrid(
 ) {
   if (total <= 0) return
   
+  // Calculate opacity based on zoom level, circle radius, and total shapes
+  const opacity = getIndexDotOpacity(radius, zoom, total)
+  if (opacity <= 0) return  // Fully faded out, skip rendering
+  
   const uiScale = 1 / zoom
   const dotRadius = (DOT_SIZE / 2) * uiScale
   
   ctx.save()
+  ctx.globalAlpha = opacity
   
   for (let i = 0; i < total; i++) {
     const pos = getDotPosition(center, i, total, zoom)

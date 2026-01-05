@@ -24,9 +24,9 @@ const guitar: Preset = {
         name: 'Upper Bout',
         center: { x: 200, y: -40 },
         radius: 100,
-        direction: 'ccw',
+        direction: 'cw',
         mirrored: true,
-        entryOffset: -0.17612252553627883,
+        entryOffset: 0.17612252553627883,
         entryTangentLength: 0.6455787586808588,
         exitTangentLength: 0.7390475459727179
       },
@@ -36,9 +36,9 @@ const guitar: Preset = {
         name: 'Waist',
         center: { x: 480, y: 200 },
         radius: 220,
-        direction: 'cw',
+        direction: 'ccw',
         mirrored: true,
-        entryOffset: -0.18708791407324643,
+        entryOffset: 0.18708791407324643,
         exitTangentLength: 1.2342171687640855,
         entryTangentLength: 0.712902115328755
       },
@@ -48,9 +48,9 @@ const guitar: Preset = {
         name: 'Lower Bout',
         center: { x: 220, y: 680 },
         radius: 220,
-        direction: 'ccw',
+        direction: 'cw',
         mirrored: true,
-        exitOffset: 0.058334448016694074,
+        exitOffset: -0.058334448016694074,
         entryTangentLength: 0.6470311810695264
       }
     ],
@@ -78,8 +78,8 @@ const mugello: Preset = {
         name: 'San Donato (T1)',
         center: { x: 120, y: 160 },
         radius: 40,
-        direction: 'ccw',
-        entryOffset: 0.08726646259971647
+        direction: 'cw',
+        entryOffset: -0.08726646259971647
       },
       {
         id: 'luco',
@@ -87,7 +87,7 @@ const mugello: Preset = {
         name: 'Luco (T2)',
         center: { x: 240, y: 100 },
         radius: 40,
-        direction: 'cw'
+        direction: 'ccw'
       },
       {
         id: 'poggio-secco',
@@ -95,7 +95,7 @@ const mugello: Preset = {
         name: 'Poggio Secco (T3)',
         center: { x: 340, y: 80 },
         radius: 50,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'materassi',
@@ -103,7 +103,7 @@ const mugello: Preset = {
         name: 'Materassi (T4)',
         center: { x: 580, y: 100 },
         radius: 40,
-        direction: 'cw'
+        direction: 'ccw'
       },
       {
         id: 'borgo',
@@ -111,7 +111,7 @@ const mugello: Preset = {
         name: 'Borgo San Lorenzo (T5)',
         center: { x: 700, y: 140 },
         radius: 50,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'casanova',
@@ -119,7 +119,7 @@ const mugello: Preset = {
         name: 'Casanova (T6)',
         center: { x: 880, y: 260 },
         radius: 60,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'savelli',
@@ -127,7 +127,7 @@ const mugello: Preset = {
         name: 'Savelli (T7)',
         center: { x: 1000, y: 340 },
         radius: 50,
-        direction: 'cw'
+        direction: 'ccw'
       },
       {
         id: 'arrabbiata1',
@@ -135,7 +135,7 @@ const mugello: Preset = {
         name: 'Arrabbiata 1 (T8)',
         center: { x: 1120, y: 480 },
         radius: 70,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'arrabbiata2',
@@ -143,7 +143,7 @@ const mugello: Preset = {
         name: 'Arrabbiata 2 (T9)',
         center: { x: 1080, y: 640 },
         radius: 70,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'scarperia',
@@ -151,7 +151,7 @@ const mugello: Preset = {
         name: 'Scarperia (T10)',
         center: { x: 880, y: 660 },
         radius: 40,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'palagio',
@@ -159,7 +159,7 @@ const mugello: Preset = {
         name: 'Palagio (T11)',
         center: { x: 780, y: 620 },
         radius: 50,
-        direction: 'cw'
+        direction: 'ccw'
       },
       {
         id: 'correntaio',
@@ -167,7 +167,7 @@ const mugello: Preset = {
         name: 'Correntaio (T12)',
         center: { x: 500, y: 480 },
         radius: 60,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'biondetti1',
@@ -175,7 +175,7 @@ const mugello: Preset = {
         name: 'Biondetti 1 (T13)',
         center: { x: 640, y: 420 },
         radius: 50,
-        direction: 'cw'
+        direction: 'ccw'
       },
       {
         id: 'biondetti2',
@@ -183,7 +183,7 @@ const mugello: Preset = {
         name: 'Biondetti 2 (T14)',
         center: { x: 700, y: 560 },
         radius: 90,
-        direction: 'ccw'
+        direction: 'cw'
       },
       {
         id: 'bucine',
@@ -191,8 +191,8 @@ const mugello: Preset = {
         name: 'Bucine (T15)',
         center: { x: 1040, y: 560 },
         radius: 80,
-        direction: 'cw',
-        exitOffset: -0.08726646259971647,
+        direction: 'ccw',
+        exitOffset: 0.08726646259971647,
         exitTangentLength: 1.1
       }
     ],
@@ -236,9 +236,9 @@ const heart: Preset = {
         name: 'Circle 2',
         center: { x: 0, y: 200 },
         radius: 10,
-        direction: 'cw',
-        exitOffset: 0.17453292519943295,
-        entryOffset: -0.17453292519943295
+        direction: 'ccw',
+        exitOffset: -0.17453292519943295,
+        entryOffset: 0.17453292519943295
       },
       {
         id: '8dbb715e-dbbb-4cfe-b343-3a5c438c3fad',
@@ -246,11 +246,11 @@ const heart: Preset = {
         name: 'Circle 1',
         center: { x: 80, y: 0 },
         radius: 100,
-        direction: 'cw',
+        direction: 'ccw',
         mirrored: true,
-        exitOffset: -0.8849444486589597,
+        exitOffset: 0.8849444486589597,
         exitTangentLength: 1.2296819201495444,
-        entryOffset: -0.3239490299150205,
+        entryOffset: 0.3239490299150205,
         entryTangentLength: 0.5965757640541248
       }
     ],
@@ -264,10 +264,122 @@ const heart: Preset = {
   }
 }
 
+/**
+ * Duck shape
+ * A playful duck silhouette using 4 circles
+ */
+const duck: Preset = {
+  name: 'Duck',
+  description: 'A playful duck silhouette',
+  document: {
+    version: 1,
+    name: 'Duck',
+    shapes: [
+      {
+        id: 'duck-body',
+        type: 'circle',
+        name: 'Body',
+        center: { x: 80, y: -20 },
+        radius: 100,
+        direction: 'cw'
+      },
+      {
+        id: 'duck-head',
+        type: 'circle',
+        name: 'Head',
+        center: { x: 40, y: -150 },
+        radius: 60,
+        direction: 'ccw',
+        exitOffset: 0.7853981633974483
+      },
+      {
+        id: 'duck-tail',
+        type: 'circle',
+        name: 'Tail',
+        center: { x: 60, y: 90 },
+        radius: 140,
+        direction: 'ccw'
+      },
+      {
+        id: 'duck-neck',
+        type: 'circle',
+        name: 'Neck',
+        center: { x: 220, y: -140 },
+        radius: 120,
+        direction: 'cw',
+        entryOffset: 1.48352986419518
+      }
+    ],
+    pathOrder: ['duck-neck', 'duck-tail', 'duck-body', 'duck-head'],
+    settings: {
+      closedPath: false,
+      useStartPoint: true,
+      useEndPoint: true
+    }
+  }
+}
+
+/**
+ * Default document
+ * A simple 4-circle arrangement for new documents
+ */
+export const defaultPreset: Preset = {
+  name: 'Default',
+  description: 'Default starting document with 4 circles',
+  document: {
+    version: 1,
+    name: 'Untitled',
+    shapes: [
+      {
+        id: 'default-c1',
+        type: 'circle',
+        name: 'Circle 1',
+        center: { x: 0, y: -80 },
+        radius: 120,
+        direction: 'cw'
+      },
+      {
+        id: 'default-c2',
+        type: 'circle',
+        name: 'Circle 2',
+        center: { x: 210, y: -140 },
+        radius: 60,
+        direction: 'ccw',
+        entryOffset: Math.PI / 2
+      },
+      {
+        id: 'default-c3',
+        type: 'circle',
+        name: 'Circle 3',
+        center: { x: 180, y: 110 },
+        radius: 140,
+        direction: 'ccw'
+      },
+      {
+        id: 'default-c4',
+        type: 'circle',
+        name: 'Circle 4',
+        center: { x: 0, y: 130 },
+        radius: 120,
+        direction: 'ccw',
+        entryOffset: Math.PI / 2
+      }
+    ],
+    pathOrder: ['default-c4', 'default-c3', 'default-c1', 'default-c2'],
+    settings: {
+      closedPath: false,
+      useStartPoint: true,
+      useEndPoint: true
+    }
+  }
+}
+
 export const presets: Preset[] = [
+  defaultPreset,
   guitar,
   mugello,
-  heart
+  heart,
+  duck
 ]
 
 export function getPresetByName(name: string): Preset | undefined {

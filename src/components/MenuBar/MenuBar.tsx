@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Menu } from './Menu'
 import { MenuItem } from './MenuItem'
-import { createNewDocument, saveDocument, loadDocument, exportSvg } from '../../utils/fileIO'
+import { createNewDocument, saveDocument, loadDocument, exportSvg, loadPreset } from '../../utils/fileIO'
 import { fitToView, resetView } from '../../utils/viewportActions'
 import { useDocumentStore } from '../../stores/documentStore'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -15,8 +15,6 @@ import styles from './MenuBar.module.css'
 export function MenuBar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const fileName = useDocumentStore(state => state.fileName)
-  const loadDocumentState = useDocumentStore(state => state.loadDocument)
-  const setFileName = useDocumentStore(state => state.setFileName)
   const toggleSnap = useSettingsStore(state => state.toggleSnap)
   const cycleMeasurementMode = useSettingsStore(state => state.cycleMeasurementMode)
   const toggleGrid = useSettingsStore(state => state.toggleGrid)
@@ -75,9 +73,7 @@ export function MenuBar() {
   const handleLoadPreset = (presetIndex: number) => {
     const preset = presets[presetIndex]
     if (preset) {
-      loadDocumentState(preset.document)
-      setFileName(preset.document.name)
-      setTimeout(() => fitToView(), 50)
+      loadPreset(preset)
     }
     closeMenu()
   }

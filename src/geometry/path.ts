@@ -177,9 +177,13 @@ export function computeTangentHull(
     const curr = orderedCircles[i]
     const next = orderedCircles[(i + 1) % n]
     
+    // Check if current circle is a mirror copy (ID ends with '_mirror')
+    const currIsMirror = curr.id.endsWith('_mirror')
+    
     const tangent = getTangentForDirections(
       curr.center, curr.radius, curr.direction ?? 'cw',
-      next.center, next.radius, next.direction ?? 'cw'
+      next.center, next.radius, next.direction ?? 'cw',
+      currIsMirror
     )
     
     tangents.push(tangent)
@@ -822,6 +826,158 @@ export function findPathSegmentAt(
     }
     
     connectorIndex++
+  }
+  
+  return closestHit
+}
+
+/**
+ * Calculate distance from a point to a circular arc
+ */
+function distanceToArc(
+  point: Point,
+  center: Point,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+  counterclockwise: boolean
+): { distance: number, closest: Point } {
+  // Angle from center to the point
+  const angleToPoint = Math.atan2(point.y - center.y, point.x - center.x)
+  
+  // Normalize the arc span
+  let arcStart = startAngle
+  let arcEnd = endAngle
+  
+  // Calculate arc span based on direction
+  let arcSpan: number
+  if (counterclockwise) {
+    // CCW: angles increase
+    arcSpan = arcEnd - arcStart
+    while (arcSpan < 0) arcSpan += Math.PI * 2
+    while (arcSpan > Math.PI * 2) arcSpan -= Math.PI * 2
+  } else {
+    // CW: angles decrease
+    arcSpan = arcStart - arcEnd
+    while (arcSpan < 0) arcSpan += Math.PI * 2
+    while (arcSpan > Math.PI * 2) arcSpan -= Math.PI * 2
+  }
+  
+  // Check if the angle to the point falls within the arc
+  const isWithinArc = (() => {
+    // Normalize angle relative to start
+    let relAngle = angleToPoint - arcStart
+    while (relAngle < 0) relAngle += Math.PI * 2
+    while (relAngle >= Math.PI * 2) relAngle -= Math.PI * 2
+    
+    if (counterclockwise) {
+      return relAngle <= arcSpan
+    } else {
+      // For CW, the "within" range is in the negative direction
+      let negRelAngle = arcStart - angleToPoint
+      while (negRelAngle < 0) negRelAngle += Math.PI * 2
+      while (negRelAngle >= Math.PI * 2) negRelAngle -= Math.PI * 2
+      return negRelAngle <= arcSpan
+    }
+  })()
+  
+  if (isWithinArc) {
+    // Closest point is on the arc at the same angle
+    const closest = pointOnCircle(center, radius, angleToPoint)
+    return { distance: Math.abs(distance(point, center) - radius), closest }
+  } else {
+    // Closest point is one of the arc endpoints
+    const startPoint = pointOnCircle(center, radius, arcStart)
+    const endPoint = pointOnCircle(center, radius, arcEnd)
+    const distToStart = distance(point, startPoint)
+    const distToEnd = distance(point, endPoint)
+    
+    if (distToStart < distToEnd) {
+      return { distance: distToStart, closest: startPoint }
+    } else {
+      return { distance: distToEnd, closest: endPoint }
+    }
+  }
+}
+
+/**
+ * Find the closest point on the entire path from a given point.
+ * Unlike findPathSegmentAt, this considers ALL segments (arcs included)
+ * and doesn't require a threshold - it always returns the closest point.
+ * 
+ * Returns the closest point and which circle index to insert after.
+ */
+export function findClosestPointOnPath(
+  shapes: CircleShape[],
+  order: string[],
+  point: Point,
+  globalStretch: number = 0,
+  closed: boolean = true,
+  useStartPoint: boolean = true,
+  useEndPoint: boolean = true
+): PathHitInfo | null {
+  // Expand shapes to include mirrored circles
+  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order)
+  
+  // Build lookup map for O(1) access
+  const shapeMap = new Map(expandedShapes.map(s => [s.id, s]))
+  
+  const circles = expandedOrder
+    .map(id => shapeMap.get(id))
+    .filter((s): s is CircleShape => s !== undefined && s.type === 'circle')
+  
+  if (circles.length < 2) return null
+  
+  const pathData = computeTangentHull(shapes, order, globalStretch, closed, useStartPoint, useEndPoint)
+  if (pathData.segments.length === 0) return null
+  
+  let closestHit: PathHitInfo | null = null
+  let closestDist = Infinity
+  
+  // Track which circle we're "after" as we iterate segments
+  // The path structure alternates: arc0, connector0, arc1, connector1, ...
+  // - arc[i] wraps around circle[i]
+  // - connector[i] goes from circle[i] to circle[(i+1) % n]
+  // For any point on arc[i] or connector[i], insert after circle[i]
+  let circleIndex = 0
+  
+  for (let i = 0; i < pathData.segments.length; i++) {
+    const seg = pathData.segments[i]
+    let result: { distance: number, closest: Point }
+    let isConnector = false
+    
+    if (seg.type === 'arc') {
+      result = distanceToArc(point, seg.center, seg.radius, seg.startAngle, seg.endAngle, seg.counterclockwise)
+    } else if (seg.type === 'ellipse-arc') {
+      // For ellipse arcs, approximate as circular arc for hit testing
+      // Use the average of radiusX and radiusY
+      const avgRadius = (seg.radiusX + seg.radiusY) / 2
+      result = distanceToArc(point, seg.center, avgRadius, seg.startAngle, seg.endAngle, seg.counterclockwise)
+    } else if (seg.type === 'line') {
+      result = distanceToLineSegment(point, seg.start, seg.end)
+      isConnector = true
+    } else if (seg.type === 'bezier') {
+      result = distanceToBezier(point, seg.start, seg.cp1, seg.cp2, seg.end)
+      isConnector = true
+    } else {
+      continue
+    }
+    
+    if (result.distance < closestDist) {
+      closestDist = result.distance
+      
+      // Both arcs and connectors for circle[i] insert after circle[i]
+      closestHit = {
+        segmentIndex: i,
+        point: result.closest,
+        fromCircleIndex: circleIndex
+      }
+    }
+    
+    // After processing a connector, we move to the next circle
+    if (isConnector) {
+      circleIndex++
+    }
   }
   
   return closestHit

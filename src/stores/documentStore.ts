@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Shape, SerpentineDocument, CircleShape } from '../types'
+import { defaultPreset } from '../utils/presets'
 
 interface DocumentState {
   // State
@@ -11,6 +12,7 @@ interface DocumentState {
   useStartPoint: boolean // Whether to use tangent point on first circle (when not looping)
   useEndPoint: boolean   // Whether to use tangent point on last circle (when not looping)
   fileName: string | null
+  isDirty: boolean       // Whether document has unsaved changes
   
   // Actions
   addShape: (shape: Shape) => void
@@ -45,53 +47,38 @@ interface DocumentState {
   reset: () => void
   loadDocument: (data: SerpentineDocument) => void
   setFileName: (name: string | null) => void
+  markDirty: () => void
+  markClean: () => void
 }
 
-// Default starting document
-const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 'globalStretch' | 'closedPath' | 'useStartPoint' | 'useEndPoint' | 'fileName'> => {
-  const c1: CircleShape = {
-    id: crypto.randomUUID(),
-    type: 'circle',
-    name: 'Circle 1',
-    center: { x: 0, y: -80 },
-    radius: 120,
-    direction: 'ccw'
-  }
-  const c2: CircleShape = {
-    id: crypto.randomUUID(),
-    type: 'circle',
-    name: 'Circle 2',
-    center: { x: 210, y: -140 },
-    radius: 60,
-    direction: 'cw',
-    entryOffset: -Math.PI / 2
-  }
-  const c3: CircleShape = {
-    id: crypto.randomUUID(),
-    type: 'circle',
-    name: 'Circle 3',
-    center: { x: 180, y: 110 },
-    radius: 140,
-    direction: 'cw'
-  }
-  const c4: CircleShape = {
-    id: crypto.randomUUID(),
-    type: 'circle',
-    name: 'Circle 4',
-    center: { x: 0, y: 130 },
-    radius: 120,
-    direction: 'cw',
-    entryOffset: -Math.PI / 2
-  }
+// Default starting document - uses the default preset with fresh UUIDs
+const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 'globalStretch' | 'closedPath' | 'useStartPoint' | 'useEndPoint' | 'fileName' | 'isDirty'> => {
+  const doc = defaultPreset.document
+  
+  // Create a mapping from preset IDs to new UUIDs
+  const idMap = new Map<string, string>()
+  doc.shapes.forEach(shape => {
+    idMap.set(shape.id, crypto.randomUUID())
+  })
+  
+  // Create shapes with new IDs
+  const shapes = doc.shapes.map(shape => ({
+    ...shape,
+    id: idMap.get(shape.id)!
+  })) as CircleShape[]
+  
+  // Map the path order to new IDs
+  const shapeOrder = doc.pathOrder.map(id => idMap.get(id)!)
   
   return {
-    shapes: [c1, c2, c3, c4],
-    shapeOrder: [c4.id, c3.id, c1.id, c2.id],  // Path order from the file
+    shapes,
+    shapeOrder,
     globalStretch: 0,
-    closedPath: false,
-    useStartPoint: true,
-    useEndPoint: true,
-    fileName: null
+    closedPath: doc.settings?.closedPath ?? false,
+    useStartPoint: doc.settings?.useStartPoint ?? true,
+    useEndPoint: doc.settings?.useEndPoint ?? true,
+    fileName: null,
+    isDirty: false
   }
 }
 
@@ -113,7 +100,8 @@ export const useDocumentStore = create<DocumentState>()(
       
       addShape: (shape) => set((state) => ({
         shapes: [...state.shapes, shape],
-        shapeOrder: [...state.shapeOrder, shape.id]
+        shapeOrder: [...state.shapeOrder, shape.id],
+        isDirty: true
       })),
       
       insertShapeAt: (shape, orderIndex) => set((state) => {
@@ -123,14 +111,16 @@ export const useDocumentStore = create<DocumentState>()(
         newOrder.splice(insertIndex, 0, shape.id)
         return {
           shapes: [...state.shapes, shape],
-          shapeOrder: newOrder
+          shapeOrder: newOrder,
+          isDirty: true
         }
       }),
       
       updateShape: (id, updates) => set((state) => ({
         shapes: state.shapes.map(shape => 
           shape.id === id ? { ...shape, ...updates } : shape
-        )
+        ),
+        isDirty: true
       })),
       
       removeShape: (id) => set((state) => {
@@ -141,39 +131,46 @@ export const useDocumentStore = create<DocumentState>()(
         }
         return {
           shapes: state.shapes.filter(shape => shape.id !== id),
-          shapeOrder: state.shapeOrder.filter(shapeId => shapeId !== id)
+          shapeOrder: state.shapeOrder.filter(shapeId => shapeId !== id),
+          isDirty: true
         }
       }),
       
-      reorderShapes: (newOrder) => set({ shapeOrder: newOrder }),
+      reorderShapes: (newOrder) => set({ shapeOrder: newOrder, isDirty: true }),
       
       // Stretch setters
       setGlobalStretch: (stretch) => set({ 
-        globalStretch: Math.max(-1, Math.min(1, stretch)) 
+        globalStretch: Math.max(-1, Math.min(1, stretch)),
+        isDirty: true 
       }),
       
       setCircleStretch: (id, stretch) => set((state) => ({
         shapes: updateCircleById(state.shapes, id, {
           stretch: stretch !== undefined ? Math.max(-1, Math.min(1, stretch)) : undefined
-        })
+        }),
+        isDirty: true
       })),
       
       // Tangent offset: angle in radians to rotate contact points (entry/exit separately)
       setEntryOffset: (id, offset) => set((state) => ({
-        shapes: updateCircleById(state.shapes, id, { entryOffset: offset })
+        shapes: updateCircleById(state.shapes, id, { entryOffset: offset }),
+        isDirty: true
       })),
       
       setExitOffset: (id, offset) => set((state) => ({
-        shapes: updateCircleById(state.shapes, id, { exitOffset: offset })
+        shapes: updateCircleById(state.shapes, id, { exitOffset: offset }),
+        isDirty: true
       })),
       
       // Tangent length multipliers
       setEntryTangentLength: (id, length) => set((state) => ({
-        shapes: updateCircleById(state.shapes, id, { entryTangentLength: length })
+        shapes: updateCircleById(state.shapes, id, { entryTangentLength: length }),
+        isDirty: true
       })),
       
       setExitTangentLength: (id, length) => set((state) => ({
-        shapes: updateCircleById(state.shapes, id, { exitTangentLength: length })
+        shapes: updateCircleById(state.shapes, id, { exitTangentLength: length }),
+        isDirty: true
       })),
       
       // Get effective stretch for a circle (circle override or global)
@@ -195,7 +192,8 @@ export const useDocumentStore = create<DocumentState>()(
       renameShape: (id, name) => set((state) => ({
         shapes: state.shapes.map(shape =>
           shape.id === id ? { ...shape, name } : shape
-        )
+        ),
+        isDirty: true
       })),
       
       duplicateShape: (id) => {
@@ -215,39 +213,45 @@ export const useDocumentStore = create<DocumentState>()(
         
         set({
           shapes: [...state.shapes, newShape],
-          shapeOrder: [...state.shapeOrder, newShape.id]
+          shapeOrder: [...state.shapeOrder, newShape.id],
+          isDirty: true
         })
       },
       
       toggleDirection: (id) => set((state) => ({
         shapes: updateCircleById(state.shapes, id, {
           direction: (state.shapes.find(s => s.id === id) as CircleShape)?.direction === 'cw' ? 'ccw' : 'cw'
-        })
+        }),
+        isDirty: true
       })),
       
       toggleMirror: (id) => set((state) => ({
         shapes: updateCircleById(state.shapes, id, {
           mirrored: !(state.shapes.find(s => s.id === id) as CircleShape)?.mirrored
-        })
+        }),
+        isDirty: true
       })),
       
       toggleClosedPath: () => set((state) => ({
-        closedPath: !state.closedPath
+        closedPath: !state.closedPath,
+        isDirty: true
       })),
       
-      setClosedPath: (closed) => set({ closedPath: closed }),
+      setClosedPath: (closed) => set({ closedPath: closed, isDirty: true }),
       
       toggleUseStartPoint: () => set((state) => ({
-        useStartPoint: !state.useStartPoint
+        useStartPoint: !state.useStartPoint,
+        isDirty: true
       })),
       
-      setUseStartPoint: (use) => set({ useStartPoint: use }),
+      setUseStartPoint: (use) => set({ useStartPoint: use, isDirty: true }),
       
       toggleUseEndPoint: () => set((state) => ({
-        useEndPoint: !state.useEndPoint
+        useEndPoint: !state.useEndPoint,
+        isDirty: true
       })),
       
-      setUseEndPoint: (use) => set({ useEndPoint: use }),
+      setUseEndPoint: (use) => set({ useEndPoint: use, isDirty: true }),
       
       reset: () => set(createDefaultDocument()),
       
@@ -281,10 +285,15 @@ export const useDocumentStore = create<DocumentState>()(
         closedPath: data.settings?.closedPath ?? true,  // Default to closed for backwards compatibility
         useStartPoint: data.settings?.useStartPoint ?? true,  // Default to true for backwards compatibility
         useEndPoint: data.settings?.useEndPoint ?? true,  // Default to true for backwards compatibility
-        fileName: data.name
+        fileName: data.name,
+        isDirty: false
       }),
       
-      setFileName: (name) => set({ fileName: name })
+      setFileName: (name) => set({ fileName: name }),
+      
+      markDirty: () => set({ isDirty: true }),
+      
+      markClean: () => set({ isDirty: false })
     }),
     {
       name: 'serpentine-document',

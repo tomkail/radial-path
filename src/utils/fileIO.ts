@@ -6,17 +6,27 @@ import { useNotificationStore, reportError } from '../stores/notificationStore'
 import { fitToView } from './viewportActions'
 import { computeTangentHull } from '../geometry/path'
 import { pointOnCircle } from '../geometry/math'
+import type { Preset } from './presets'
+
+/**
+ * Check if document has unsaved changes and show confirmation if needed
+ */
+function confirmIfDirty(action: string): boolean {
+  const isDirty = useDocumentStore.getState().isDirty
+  if (!isDirty) return true
+  
+  return window.confirm(
+    `${action}? Any unsaved changes will be lost.`
+  )
+}
 
 /**
  * Create a new document (reset to defaults)
  */
 export function createNewDocument(skipConfirmation = false): boolean {
   try {
-    if (!skipConfirmation) {
-      const confirmed = window.confirm(
-        'Create a new document? Any unsaved changes will be lost.'
-      )
-      if (!confirmed) return false
+    if (!skipConfirmation && !confirmIfDirty('Create a new document')) {
+      return false
     }
     
     useDocumentStore.getState().reset()
@@ -76,6 +86,7 @@ export function saveDocument(): void {
     window.document.body.removeChild(a)
     URL.revokeObjectURL(url)
     
+    useDocumentStore.getState().markClean()
     useNotificationStore.getState().success('Document saved', `${doc.name}.serpentine`)
   } catch (error) {
     reportError(error, 'Failed to save document')
@@ -87,6 +98,11 @@ export function saveDocument(): void {
  */
 export function loadDocument(): void {
   try {
+    // Check for unsaved changes before opening file picker
+    if (!confirmIfDirty('Open a document')) {
+      return
+    }
+    
     const input = window.document.createElement('input')
     input.type = 'file'
     input.accept = '.serpentine,.stringpath,.json'
@@ -138,6 +154,31 @@ export function loadDocument(): void {
     input.click()
   } catch (error) {
     reportError(error, 'Failed to open file picker')
+  }
+}
+
+/**
+ * Load a preset document
+ */
+export function loadPreset(preset: Preset): boolean {
+  try {
+    if (!confirmIfDirty('Load preset')) {
+      return false
+    }
+    
+    useDocumentStore.getState().loadDocument(preset.document)
+    useDocumentStore.getState().setFileName(preset.document.name)
+    
+    // Fit to view after loading preset
+    requestAnimationFrame(() => {
+      fitToView(true)
+    })
+    
+    useNotificationStore.getState().success('Preset loaded', preset.name)
+    return true
+  } catch (error) {
+    reportError(error, 'Failed to load preset')
+    return false
   }
 }
 
