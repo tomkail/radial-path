@@ -3,7 +3,7 @@ import { useDocumentStore } from '../../stores/documentStore'
 import { useViewportStore, screenToWorld } from '../../stores/viewportStore'
 import { useSelectionStore } from '../../stores/selectionStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { containsPoint, createCircle } from '../../geometry/shapes/Circle'
+import { createCircle } from '../../geometry/shapes/Circle'
 import { 
   isOnDirectionRing, 
   isOnDeleteIcon,
@@ -96,7 +96,7 @@ function getScaleCursor(angleRad: number): string {
 
 export function useCanvasInteraction(
   canvasRef: RefObject<HTMLCanvasElement>,
-  containerRef: RefObject<HTMLDivElement>
+  _containerRef: RefObject<HTMLDivElement>
 ) {
   const shapes = useDocumentStore(state => state.shapes)
   const shapeOrder = useDocumentStore(state => state.shapeOrder)

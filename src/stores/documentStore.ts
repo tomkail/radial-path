@@ -216,15 +216,27 @@ export const useDocumentStore = create<DocumentState>()(
       loadDocument: (data) => set({
         // Ensure backwards compatibility - add default wrapSide if missing
         // Stretch is left as undefined if not specified (inherits from global)
-        shapes: data.shapes.map(shape => ({
-          ...shape,
-          wrapSide: shape.wrapSide ?? 'right',
-          // Migrate: fling (0-1) maps to stretch (0-1), tension (0-1) maps to stretch (1-0)
-          stretch: shape.stretch ?? shape.fling ?? (shape.tension !== undefined ? 1 - shape.tension : undefined)
-        })),
+        shapes: data.shapes.map(shape => {
+          // Cast to unknown first for backwards compatibility with old file formats
+          const legacyShape = shape as unknown as Record<string, unknown>
+          const legacyStretch = legacyShape.fling as number | undefined
+          const legacyTension = legacyShape.tension as number | undefined
+          return {
+            ...shape,
+            wrapSide: shape.wrapSide ?? 'right',
+            // Migrate: fling (0-1) maps to stretch (0-1), tension (0-1) maps to stretch (1-0)
+            stretch: shape.stretch ?? legacyStretch ?? (legacyTension !== undefined ? 1 - legacyTension : undefined)
+          } as CircleShape
+        }),
         shapeOrder: data.pathOrder,
         // Migrate old settings to globalStretch
-        globalStretch: data.settings?.globalStretch ?? data.settings?.globalFling ?? (data.settings?.globalTension !== undefined ? 1 - data.settings.globalTension : 0),
+        globalStretch: (() => {
+          const settings = data.settings as unknown as Record<string, unknown> | undefined
+          if (settings?.globalStretch !== undefined) return settings.globalStretch as number
+          if (settings?.globalFling !== undefined) return settings.globalFling as number
+          if (settings?.globalTension !== undefined) return 1 - (settings.globalTension as number)
+          return 0
+        })(),
         closedPath: data.settings?.closedPath ?? true,  // Default to closed for backwards compatibility
         fileName: data.name
       }),

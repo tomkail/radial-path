@@ -1,13 +1,5 @@
 import { create } from 'zustand'
-import type { DragMode, Point, HoverTarget } from '../types'
-
-interface DragState {
-  mode: DragMode
-  shapeId: string
-  startPoint: Point
-  startCenter: Point
-  startRadius: number
-}
+import type { DragState, HoverTarget } from '../types'
 
 interface SelectionState {
   // State

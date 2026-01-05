@@ -56,18 +56,16 @@ export function angleToPoint(circle: CircleShape, point: Point): number {
 
 /**
  * Create a new circle with default values
- * By default, tension is undefined so circles inherit from project fling
  */
 export function createCircle(
   center: Point,
   radius: number = DEFAULT_CIRCLE_RADIUS,
   id?: string,
   name?: string,
-  wrapSide: 'left' | 'right' = 'right',
-  tension?: number  // undefined = inherit from project
+  wrapSide: 'left' | 'right' = 'right'
 ): CircleShape {
   const circleId = id ?? crypto.randomUUID()
-  const circle: CircleShape = {
+  return {
     id: circleId,
     type: 'circle',
     name: name ?? `Circle`,
@@ -75,11 +73,6 @@ export function createCircle(
     radius,
     wrapSide
   }
-  // Only set tension if explicitly provided
-  if (tension !== undefined) {
-    circle.tension = tension
-  }
-  return circle
 }
 
 /**

@@ -166,7 +166,7 @@ function smoothstep(t: number): number {
  */
 export function renderMirrorAxis(
   ctx: CanvasRenderingContext2D,
-  canvasWidth: number,
+  _canvasWidth: number,
   canvasHeight: number,
   pan: Point,
   zoom: number

@@ -695,66 +695,6 @@ function distanceToBezier(
 }
 
 /**
- * Check if a point is on an arc segment
- * Reserved for future use - currently only connector segments (line/bezier) are clickable
- */
-function _distanceToArc(
-  point: Point,
-  center: Point,
-  radius: number,
-  startAngle: number,
-  endAngle: number,
-  clockwise: boolean
-): { distance: number, closest: Point } {
-  // Get angle from center to point
-  const angleToPoint = Math.atan2(point.y - center.y, point.x - center.x)
-  
-  // Check if angle is within arc span
-  let inArc = false
-  let arcSpan = endAngle - startAngle
-  
-  if (clockwise) {
-    // Clockwise: span should be positive
-    while (arcSpan < 0) arcSpan += Math.PI * 2
-    while (arcSpan > Math.PI * 2) arcSpan -= Math.PI * 2
-    
-    let relAngle = angleToPoint - startAngle
-    while (relAngle < 0) relAngle += Math.PI * 2
-    while (relAngle > Math.PI * 2) relAngle -= Math.PI * 2
-    
-    inArc = relAngle <= arcSpan
-  } else {
-    // Counter-clockwise: span should be negative
-    while (arcSpan > 0) arcSpan -= Math.PI * 2
-    while (arcSpan < -Math.PI * 2) arcSpan += Math.PI * 2
-    
-    let relAngle = angleToPoint - startAngle
-    while (relAngle > 0) relAngle -= Math.PI * 2
-    while (relAngle < -Math.PI * 2) relAngle += Math.PI * 2
-    
-    inArc = relAngle >= arcSpan
-  }
-  
-  if (inArc) {
-    // Point projects onto arc
-    const closestOnArc = pointOnCircle(center, radius, angleToPoint)
-    return { distance: Math.abs(distance(point, center) - radius), closest: closestOnArc }
-  } else {
-    // Point is outside arc span - closest is one of the endpoints
-    const startPoint = pointOnCircle(center, radius, startAngle)
-    const endPoint = pointOnCircle(center, radius, endAngle)
-    const distToStart = distance(point, startPoint)
-    const distToEnd = distance(point, endPoint)
-    
-    if (distToStart < distToEnd) {
-      return { distance: distToStart, closest: startPoint }
-    } else {
-      return { distance: distToEnd, closest: endPoint }
-    }
-  }
-}
-
-/**
  * Find the path segment closest to a given point.
  * Returns null if no segment is within the threshold.
  * Only considers connector segments (line/bezier), not arc segments on circles.
