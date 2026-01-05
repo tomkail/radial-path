@@ -21,6 +21,7 @@ import type { Point, CircleShape, DragMode, HoverTarget } from '../../types'
 import {
   HANDLE_TOLERANCE,
   DRAG_THRESHOLD,
+  POSITION_SNAP_INCREMENT,
   RADIUS_SNAP_INCREMENT,
   OFFSET_SNAP_THRESHOLD,
   OFFSET_SNAP_INCREMENT,
@@ -621,7 +622,7 @@ export function useCanvasInteraction(
         }
         
         if (snapToGridEnabled || e.shiftKey) {
-          newCenter = snapPointToGrid(newCenter, gridSize)
+          newCenter = snapPointToGrid(newCenter, POSITION_SNAP_INCREMENT)
         }
         
         updateShape(dragState.shapeId, { center: newCenter })

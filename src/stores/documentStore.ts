@@ -48,19 +48,49 @@ interface DocumentState {
   setFileName: (name: string | null) => void
 }
 
-// Default starting document with a few circles
+// Default starting document
 const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 'globalStretch' | 'closedPath' | 'useStartPoint' | 'useEndPoint' | 'fileName'> => {
-  const c1 = createCircle({ x: 200, y: 200 }, 60, undefined, 'Circle 1')
-  const c2 = createCircle({ x: 400, y: 150 }, 40, undefined, 'Circle 2')
-  const c3 = createCircle({ x: 350, y: 350 }, 70, undefined, 'Circle 3')
+  const c1: CircleShape = {
+    id: crypto.randomUUID(),
+    type: 'circle',
+    name: 'Circle 1',
+    center: { x: 162.35, y: -67.33 },
+    radius: 120.81,
+    wrapSide: 'left'
+  }
+  const c2: CircleShape = {
+    id: crypto.randomUUID(),
+    type: 'circle',
+    name: 'Circle 2',
+    center: { x: 400, y: -120 },
+    radius: 50,
+    wrapSide: 'right',
+    entryOffset: -Math.PI / 2
+  }
+  const c3: CircleShape = {
+    id: crypto.randomUUID(),
+    type: 'circle',
+    name: 'Circle 3',
+    center: { x: 340, y: 120 },
+    radius: 112.76,
+    wrapSide: 'right'
+  }
+  const c4: CircleShape = {
+    id: crypto.randomUUID(),
+    type: 'circle',
+    name: 'Circle 4',
+    center: { x: 100, y: 180 },
+    radius: 50,
+    wrapSide: 'right'
+  }
   
   return {
-    shapes: [c1, c2, c3],
-    shapeOrder: [c1.id, c2.id, c3.id],
-    globalStretch: 0,  // 0 = circular arcs (no stretch)
-    closedPath: true,  // Path loops by default
-    useStartPoint: true, // Use tangent point on first circle by default
-    useEndPoint: true,   // Use tangent point on last circle by default
+    shapes: [c1, c2, c3, c4],
+    shapeOrder: [c4.id, c3.id, c1.id, c2.id],  // Path order from the file
+    globalStretch: 0,
+    closedPath: false,
+    useStartPoint: true,
+    useEndPoint: true,
     fileName: null
   }
 }

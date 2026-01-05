@@ -56,8 +56,6 @@ const guitar: Preset = {
     ],
     pathOrder: ['upper-bout', 'waist', 'lower-bout'],
     settings: {
-      gridSize: 20,
-      globalStretch: 0,
       closedPath: true
     }
   }
@@ -216,8 +214,6 @@ const mugello: Preset = {
       'bucine'
     ],
     settings: {
-      gridSize: 20,
-      globalStretch: 0,
       closedPath: true
     }
   }
@@ -263,8 +259,6 @@ const heart: Preset = {
       '8dbb715e-dbbb-4cfe-b343-3a5c438c3fad'
     ],
     settings: {
-      gridSize: 20,
-      globalStretch: 0,
       closedPath: true
     }
   }

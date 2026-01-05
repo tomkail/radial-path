@@ -19,6 +19,12 @@ export function createNewDocument(skipConfirmation = false): boolean {
     
     useDocumentStore.getState().reset()
     useViewportStore.getState().reset()
+    
+    // Fit to view after creating new document
+    requestAnimationFrame(() => {
+      fitToView(true)
+    })
+    
     useNotificationStore.getState().success('New document created')
     return true
   } catch (error) {

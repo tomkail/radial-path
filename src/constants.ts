@@ -16,7 +16,7 @@ export const FIT_TO_RECT_PADDING = 40
 // GRID
 // ============================================================================
 
-export const DEFAULT_GRID_SIZE = 20
+export const DEFAULT_GRID_SIZE = 10
 export const MIN_GRID_SIZE = 10
 export const MAX_GRID_SIZE = 100
 
@@ -30,6 +30,7 @@ export const GRID_DOT_RADIUS_SCREEN = 1.2     // Dot size in screen pixels
 // SNAPPING
 // ============================================================================
 
+export const POSITION_SNAP_INCREMENT = 10
 export const RADIUS_SNAP_INCREMENT = 10
 export const OFFSET_SNAP_THRESHOLD = 0.05     // Snap offset to 0 when below this
 export const OFFSET_SNAP_INCREMENT = Math.PI / 36  // 5 degrees in radians
