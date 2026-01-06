@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { useDocumentStore } from '../../stores/documentStore'
 import { useViewportStore } from '../../stores/viewportStore'
 import { useSelectionStore, getClickPreviewOpacity, getMarqueeRect } from '../../stores/selectionStore'
@@ -21,7 +21,56 @@ import { fitToView } from '../../utils/viewportActions'
 import { startMeasure, endMeasure, markFrame, getFPS, getAvgFrameTime, isProfilerEnabled, trackMemory, getMemoryUsageMB } from '../../utils/profiler'
 import styles from './Canvas.module.css'
 
+// Startup timing
+const CANVAS_LOAD_TIME = performance.now()
+console.log(`%c[Canvas] Module loaded at ${CANVAS_LOAD_TIME.toFixed(1)}ms`, 'color: #6bcb77; font-weight: bold;')
+
+// Pre-warm the Canvas 2D API by doing a small draw
+// This triggers GPU resource allocation and JIT compilation early
+// so the first real render doesn't freeze for 3+ seconds
+const warmupCanvas = () => {
+  const startTime = performance.now()
+  console.log('%c[Canvas] Starting GPU/JIT warmup...', 'color: #ffd93d;')
+  
+  const canvas = document.createElement('canvas')
+  canvas.width = 100
+  canvas.height = 100
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  
+  // Do a variety of draw operations to trigger JIT compilation
+  // These are the same operations used in the real render
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, 100, 100)
+  
+  // Arc drawing (used by grid dots)
+  ctx.beginPath()
+  for (let i = 0; i < 100; i++) {
+    ctx.moveTo(i + 2, i)
+    ctx.arc(i, i, 2, 0, Math.PI * 2)
+  }
+  ctx.fill()
+  
+  // Line drawing (used by paths)
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(100, 100)
+  ctx.bezierCurveTo(25, 25, 75, 75, 100, 0)
+  ctx.stroke()
+  
+  // Text rendering (used by labels)
+  ctx.font = '12px system-ui'
+  ctx.fillText('warmup', 10, 10)
+  
+  console.log(`%c[Canvas] GPU/JIT warmup completed in ${(performance.now() - startTime).toFixed(1)}ms`, 'color: #00ff88;')
+}
+
+// Run warmup immediately on module load
+warmupCanvas()
+
 export function Canvas() {
+  console.log(`%c[Canvas] Canvas render at ${(performance.now() - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #6bcb77;')
+  
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   
@@ -68,11 +117,26 @@ export function Canvas() {
   // Track if initial fit-to-view has been done
   const initialFitDoneRef = useRef(false)
   
+  // Track if first render has been done (for startup profiling)
+  const firstRenderDoneRef = useRef(false)
+  
   // Render function
   const render = useCallback(() => {
+    const renderStart = performance.now()
+    console.log(`%c[Canvas] render() called at ${(renderStart - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #6bcb77;')
+    
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
-    if (!canvas || !ctx) return
+    if (!canvas || !ctx) {
+      console.log(`%c[Canvas] render() EARLY RETURN - canvas: ${!!canvas}, ctx: ${!!ctx}`, 'color: #ff0000; font-weight: bold;')
+      return
+    }
+    console.log(`%c[Canvas] render() starting work, canvas: ${canvas.width}x${canvas.height}`, 'color: #888;')
+    
+    // Track timing for first render (always on for debugging startup)
+    const isFirstRender = !firstRenderDoneRef.current
+    const timings: Record<string, number> = {}
+    const mark = (name: string) => { timings[name] = performance.now() - renderStart }
     
     // Mark frame for FPS tracking and detect GC
     markFrame()
@@ -88,6 +152,7 @@ export function Canvas() {
       ctx.fillStyle = isolatePath ? '#000000' : theme.background
       ctx.fillRect(0, 0, canvas.width, canvas.height)
       endMeasure('clear')
+      if (isFirstRender) mark('clear')
       
       // Save context and apply viewport transform
       ctx.save()
@@ -106,11 +171,14 @@ export function Canvas() {
       }
       
       // Render layers (back to front)
-      if (showGrid) {
+      // Skip grid on first render to avoid 3+ second freeze (grid is the heaviest operation)
+      // Grid will appear on subsequent renders
+      if (showGrid && !isFirstRender) {
         startMeasure('grid')
         renderGrid(ctx, canvas.width, canvas.height, pan, zoom, gridSize, theme.gridColor)
         endMeasure('grid')
       }
+      if (isFirstRender) mark('grid-skipped')
       
       // Draw mirror axis if any circle has mirroring enabled
       const hasMirroredCircles = shapes.some(s => s.type === 'circle' && s.mirrored)
@@ -118,12 +186,14 @@ export function Canvas() {
         startMeasure('mirrorAxis')
         renderMirrorAxis(ctx, canvas.width, canvas.height, pan, zoom, theme.gridColor, mirrorAxis)
         endMeasure('mirrorAxis')
+        if (isFirstRender) mark('mirrorAxis')
       }
       
       // Shapes first (below path)
       startMeasure('shapes')
       renderShapes(ctx, shapes, selectedIds, hoveredId, hoverTarget, theme, zoom, shapeOrder, mirrorAxis)
       endMeasure('shapes')
+      if (isFirstRender) mark('shapes')
       
       // Click preview circle (semi-transparent hint for double-click)
       // Animated: fades in over first 10%, fades out over last 50%
@@ -164,6 +234,7 @@ export function Canvas() {
       startMeasure('path')
       renderPath(ctx, shapes, shapeOrder, zoom, globalStretch, closedPath, useStartPoint, useEndPoint, theme.pathStroke, mirrorAxis)
       endMeasure('path')
+      if (isFirstRender) mark('path')
       
       // Smart guides during drag operations
       if (dragState?.mode === 'move' && activeGuides.length > 0) {
@@ -174,6 +245,7 @@ export function Canvas() {
       startMeasure('handles')
       renderSelectedTangentHandles(ctx, shapes, selectedIds, hoverTarget, shapeOrder, theme, zoom, closedPath, useStartPoint, useEndPoint, mirrorAxis)
       endMeasure('handles')
+      if (isFirstRender) mark('handles')
       
       // Handle value labels (for hovered/dragged handles)
       renderHandleValues(
@@ -259,6 +331,30 @@ export function Canvas() {
     }
     
     endMeasure('Canvas.render')
+    
+    // Log first render timing breakdown
+    if (isFirstRender) {
+      firstRenderDoneRef.current = true
+      console.log(
+        `%c[Canvas] FIRST RENDER BREAKDOWN:`,
+        'color: #ff6b6b; font-weight: bold; background: #fff0f0; padding: 4px 8px;'
+      )
+      let lastTime = 0
+      for (const [name, time] of Object.entries(timings)) {
+        const delta = time - lastTime
+        const color = delta > 100 ? '#ff0000' : delta > 10 ? '#ffa500' : '#00aa00'
+        console.log(`  %c${name}: ${time.toFixed(1)}ms (Δ${delta.toFixed(1)}ms)`, `color: ${color};`)
+        lastTime = time
+      }
+      
+      // Schedule a second render to show the grid (which was skipped on first render)
+      requestAnimationFrame(() => {
+        console.log('%c[Canvas] Rendering grid (deferred)...', 'color: #ffd93d;')
+        render()
+      })
+    }
+    
+    console.log(`%c[Canvas] render() completed in ${(performance.now() - renderStart).toFixed(1)}ms`, 'color: #00ff88;')
   }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis, pan, zoom, selectedIds, hoveredId, hoverTarget, dragState, clickPreview, activeGuides, gridSize, showGrid, measurementMode, isolatePath, debugSettings, theme, showPerformanceOverlay])
   
   // Helper to draw performance overlay
@@ -310,10 +406,17 @@ export function Canvas() {
     const canvas = canvasRef.current
     if (!container || !canvas) return
     
+    console.log(`%c[Canvas] ResizeObserver setup at ${(performance.now() - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #ff6b6b;')
+    
     const resizeObserver = new ResizeObserver((entries) => {
+      const resizeStart = performance.now()
+      console.log(`%c[Canvas] ResizeObserver callback fired at ${(resizeStart - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #ff6b6b; font-weight: bold;')
+      
       for (const entry of entries) {
         const { width, height } = entry.contentRect
         const dpr = window.devicePixelRatio || 1
+        
+        console.log(`%c[Canvas] Canvas size: ${width}x${height} (dpr: ${dpr})`, 'color: #888;')
         
         canvas.width = width * dpr
         canvas.height = height * dpr
@@ -331,13 +434,19 @@ export function Canvas() {
         // Fit to view on initial load (only once)
         if (!initialFitDoneRef.current) {
           initialFitDoneRef.current = true
+          console.log(`%c[Canvas] Scheduling fitToView...`, 'color: #ffd93d;')
           // Use requestAnimationFrame to ensure dimensions are committed
           requestAnimationFrame(() => {
+            const fitStart = performance.now()
+            console.log(`%c[Canvas] fitToView started at ${(fitStart - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #ffd93d;')
             fitToView(true)
+            console.log(`%c[Canvas] fitToView completed in ${(performance.now() - fitStart).toFixed(1)}ms`, 'color: #00ff88;')
           })
         }
         
+        console.log(`%c[Canvas] Calling render() from resize handler...`, 'color: #6bcb77;')
         render()
+        console.log(`%c[Canvas] Resize handler completed in ${(performance.now() - resizeStart).toFixed(1)}ms`, 'color: #00ff88;')
       }
     })
     
@@ -345,8 +454,18 @@ export function Canvas() {
     return () => resizeObserver.disconnect()
   }, [render, setCanvasDimensions])
   
+  // Mark Canvas mount timing
+  useLayoutEffect(() => {
+    console.log(`%c[Canvas] Canvas mounted (layout) at ${(performance.now() - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #00ff88;')
+  }, [])
+  
+  useEffect(() => {
+    console.log(`%c[Canvas] Canvas mounted (effect) at ${(performance.now() - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #00ff88;')
+  }, [])
+  
   // Re-render on state changes
   useEffect(() => {
+    console.log(`%c[Canvas] useEffect[render] triggered at ${(performance.now() - CANVAS_LOAD_TIME).toFixed(1)}ms`, 'color: #ff6b6b;')
     render()
   }, [render])
   

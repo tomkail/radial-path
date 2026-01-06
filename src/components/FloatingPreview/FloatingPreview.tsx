@@ -6,6 +6,10 @@ import { pathSegmentsToSvgPath, calculatePathBounds } from '../../utils/fileIO'
 import type { CircleShape } from '../../types'
 import styles from './FloatingPreview.module.css'
 
+// Startup timing
+const PREVIEW_LOAD_TIME = performance.now()
+console.log(`%c[FloatingPreview] Module loaded at ${PREVIEW_LOAD_TIME.toFixed(1)}ms`, 'color: #ffd93d; font-weight: bold;')
+
 interface Position {
   x: number
   y: number
@@ -44,6 +48,7 @@ export function FloatingPreview() {
   const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number; posX: number; posY: number }>({ x: 0, y: 0, width: 0, height: 0, posX: 0, posY: 0 })
 
   const svgData = useMemo(() => {
+    const start = performance.now()
     const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
     if (circles.length < 2) return null
     
@@ -80,11 +85,14 @@ export function FloatingPreview() {
     const viewBoxWidth = bounds.maxX - bounds.minX + padding * 2
     const viewBoxHeight = bounds.maxY - bounds.minY + padding * 2
     
-    return {
+    const result = {
       pathD: svgPathD,
       viewBox: `${viewBoxX.toFixed(3)} ${viewBoxY.toFixed(3)} ${viewBoxWidth.toFixed(3)} ${viewBoxHeight.toFixed(3)}`,
       scaledStrokeWidth
     }
+    
+    console.log(`%c[FloatingPreview] svgData computed in ${(performance.now() - start).toFixed(1)}ms`, 'color: #ffd93d;')
+    return result
   }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis, strokeWidth])
 
   // Drag handlers

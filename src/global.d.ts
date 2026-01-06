@@ -4,4 +4,12 @@ declare module '*.module.css' {
   export default classes
 }
 
+// Startup profiling globals
+declare global {
+  interface Window {
+    __markStartup?: (name: string) => void
+    __startupStart?: number
+  }
+}
 
+export {}

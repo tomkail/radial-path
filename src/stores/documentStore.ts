@@ -4,6 +4,10 @@ import type { Shape, SerpentineDocument, CircleShape, MirrorAxis } from '../type
 import { defaultPreset } from '../utils/presets'
 import { startMeasure, endMeasure } from '../utils/profiler'
 
+// Startup timing - runs during module evaluation
+const moduleStartTime = performance.now()
+console.log('%c[Store] documentStore module loading...', 'color: #ffd93d;')
+
 interface DocumentState {
   // State
   shapes: Shape[]
@@ -350,8 +354,11 @@ export const useDocumentStore = create<DocumentState>()(
       }),
       // Migrate old data
       merge: (persistedState, currentState) => {
+        console.log('%c[Store] documentStore hydrating from localStorage...', 'color: #ffd93d;')
+        const hydrateStart = performance.now()
+        
         const persisted = persistedState as Partial<DocumentState> & { globalTension?: number; globalFling?: number }
-        return {
+        const result = {
           ...currentState,
           ...persisted,
           // Migrate old globalFling/globalTension to globalStretch
@@ -374,8 +381,24 @@ export const useDocumentStore = create<DocumentState>()(
             }
           })
         }
+        
+        console.log(`%c[Store] documentStore hydrated in ${(performance.now() - hydrateStart).toFixed(1)}ms (${result.shapes.length} shapes)`, 'color: #ffd93d;')
+        return result
+      },
+      onRehydrateStorage: () => {
+        console.log('%c[Store] documentStore onRehydrateStorage start', 'color: #ffd93d;')
+        return (state, error) => {
+          if (error) {
+            console.error('[Store] documentStore hydration error:', error)
+          } else {
+            console.log(`%c[Store] documentStore rehydration complete`, 'color: #00ff88;')
+          }
+        }
       }
     }
   )
 )
+
+// Log when module finishes loading
+console.log(`%c[Store] documentStore module loaded in ${(performance.now() - moduleStartTime).toFixed(1)}ms`, 'color: #00ff88;')
 
