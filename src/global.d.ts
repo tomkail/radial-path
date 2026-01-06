@@ -1,15 +1,13 @@
+/// <reference types="vite/client" />
+
 // CSS Module declarations
 declare module '*.module.css' {
-  const classes: { [key: string]: string }
+  const classes: { readonly [key: string]: string }
   export default classes
 }
 
 // Startup profiling globals
-declare global {
-  interface Window {
-    __markStartup?: (name: string) => void
-    __startupStart?: number
-  }
+interface Window {
+  __markStartup?: (name: string) => void
+  __startupStart?: number
 }
-
-export {}

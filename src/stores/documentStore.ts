@@ -387,7 +387,7 @@ export const useDocumentStore = create<DocumentState>()(
       },
       onRehydrateStorage: () => {
         console.log('%c[Store] documentStore onRehydrateStorage start', 'color: #ffd93d;')
-        return (state, error) => {
+        return (_state, error) => {
           if (error) {
             console.error('[Store] documentStore hydration error:', error)
           } else {
