@@ -528,10 +528,13 @@ function renderArcLengths(
       radiusTextRotation += Math.PI
     }
     
-    // Offset the text perpendicular to the line
+    // Offset the text perpendicular to the line, away from the angle segment
+    // For counterclockwise arcs, the angle segment is on the -PI/2 side, so offset to +PI/2
+    // For clockwise arcs, the angle segment is on the +PI/2 side, so offset to -PI/2
     const radiusLabelOffset = offset * 0.6
-    const radiusLabelX = radiusMidX + Math.cos(arc.startAngle + Math.PI / 2) * radiusLabelOffset
-    const radiusLabelY = radiusMidY + Math.sin(arc.startAngle + Math.PI / 2) * radiusLabelOffset
+    const perpOffset = arc.counterclockwise ? arc.startAngle + Math.PI / 2 : arc.startAngle - Math.PI / 2
+    const radiusLabelX = radiusMidX + Math.cos(perpOffset) * radiusLabelOffset
+    const radiusLabelY = radiusMidY + Math.sin(perpOffset) * radiusLabelOffset
     
     ctx.save()
     ctx.translate(radiusLabelX, radiusLabelY)
@@ -796,10 +799,13 @@ function renderEllipseArcLengths(
       radiusTextRotation += Math.PI
     }
     
-    // Offset the text perpendicular to the line
+    // Offset the text perpendicular to the line, away from the angle segment
+    // For counterclockwise arcs, the angle segment is on the -PI/2 side, so offset to +PI/2
+    // For clockwise arcs, the angle segment is on the +PI/2 side, so offset to -PI/2
     const radiusLabelOffset = offset * 0.6
-    const radiusLabelX = radiusMidPt.x + Math.cos(radiusLineAngle + Math.PI / 2) * radiusLabelOffset
-    const radiusLabelY = radiusMidPt.y + Math.sin(radiusLineAngle + Math.PI / 2) * radiusLabelOffset
+    const perpOffset = arc.counterclockwise ? radiusLineAngle + Math.PI / 2 : radiusLineAngle - Math.PI / 2
+    const radiusLabelX = radiusMidPt.x + Math.cos(perpOffset) * radiusLabelOffset
+    const radiusLabelY = radiusMidPt.y + Math.sin(perpOffset) * radiusLabelOffset
     
     ctx.save()
     ctx.translate(radiusLabelX, radiusLabelY)

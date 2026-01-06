@@ -35,7 +35,7 @@ export const useSettingsStore = create<SettingsState>()(
       snapToGrid: true,
       smartGuides: true,
       gridSize: DEFAULT_GRID_SIZE,
-      measurementMode: 'detailed',
+      measurementMode: 'clean',
       showGrid: true,
       isolatePath: false,
       showSvgPreview: true,
