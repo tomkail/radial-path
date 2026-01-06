@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { Canvas } from './Canvas/Canvas'
 import { FloatingPreview } from './FloatingPreview/FloatingPreview'
-import { MenuBar } from './MenuBar/MenuBar'
 import { Toolbar } from './Toolbar/Toolbar'
 import { Notifications } from './Notifications/Notifications'
 import { ErrorBoundary } from './ErrorBoundary/ErrorBoundary'
@@ -39,7 +38,6 @@ function AppContent() {
   
   return (
     <div className={styles.app}>
-      <MenuBar />
       <div className={styles.main}>
         <ErrorBoundary>
           <Canvas />

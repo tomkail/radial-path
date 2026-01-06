@@ -671,3 +671,187 @@ export function drawPlusIconCanvas({
   ctx.restore()
 }
 
+/**
+ * Undo Icon - Curved arrow pointing left/back
+ */
+export function UndoIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 16 16" 
+      fill="none" 
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path 
+        d="M3 6H10C11.66 6 13 7.34 13 9C13 10.66 11.66 12 10 12H7" 
+        stroke={color} 
+        strokeWidth="1.75" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path 
+        d="M5.5 3.5L3 6L5.5 8.5" 
+        stroke={color} 
+        strokeWidth="1.75" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Redo Icon - Curved arrow pointing right/forward
+ */
+export function RedoIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 16 16" 
+      fill="none" 
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path 
+        d="M13 6H6C4.34 6 3 7.34 3 9C3 10.66 4.34 12 6 12H9" 
+        stroke={color} 
+        strokeWidth="1.75" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path 
+        d="M10.5 3.5L13 6L10.5 8.5" 
+        stroke={color} 
+        strokeWidth="1.75" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Theme/Palette Icon - Circle with color segments
+ */
+export function ThemeIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 16 16" 
+      fill="none" 
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="8" cy="8" r="6" stroke={color} strokeWidth="1.5" fill="none" />
+      <path 
+        d="M8 2V8L12.24 4.24" 
+        stroke={color} 
+        strokeWidth="1.5" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path 
+        d="M8 8V14" 
+        stroke={color} 
+        strokeWidth="1.5" 
+        strokeLinecap="round"
+        fill="none"
+      />
+      <circle cx="5" cy="6" r="1.25" fill={color} />
+      <circle cx="10.5" cy="10" r="1.25" fill={color} />
+    </svg>
+  )
+}
+
+/**
+ * Debug/Bug Icon - Stylized bug shape
+ */
+export function DebugIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 16 16" 
+      fill="none" 
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Bug body */}
+      <ellipse cx="8" cy="9.5" rx="3.5" ry="4" stroke={color} strokeWidth="1.5" fill="none" />
+      {/* Bug head */}
+      <circle cx="8" cy="4.5" r="2" stroke={color} strokeWidth="1.5" fill="none" />
+      {/* Antennae */}
+      <path d="M6.5 3L5 1.5M9.5 3L11 1.5" stroke={color} strokeWidth="1.25" strokeLinecap="round" />
+      {/* Legs */}
+      <path d="M4.5 7.5L2.5 6.5M4.5 10L2.5 10M4.5 12L3 13.5" stroke={color} strokeWidth="1.25" strokeLinecap="round" />
+      <path d="M11.5 7.5L13.5 6.5M11.5 10L13.5 10M11.5 12L13 13.5" stroke={color} strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+/**
+ * File/Document Icon - Simple document with folded corner
+ */
+export function FileIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 16 16" 
+      fill="none" 
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path 
+        d="M3 2.5C3 1.95 3.45 1.5 4 1.5H9L13 5.5V13.5C13 14.05 12.55 14.5 12 14.5H4C3.45 14.5 3 14.05 3 13.5V2.5Z" 
+        stroke={color} 
+        strokeWidth="1.5" 
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path 
+        d="M9 1.5V5.5H13" 
+        stroke={color} 
+        strokeWidth="1.5" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Chevron Down Icon - Simple downward arrow for dropdowns
+ */
+export function ChevronDownIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 16 16" 
+      fill="none" 
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path 
+        d="M4 6L8 10L12 6" 
+        stroke={color} 
+        strokeWidth="1.75" 
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
