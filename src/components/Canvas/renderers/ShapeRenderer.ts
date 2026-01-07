@@ -40,6 +40,7 @@ import type { MeasurementMode } from '../../../types'
 
 /**
  * Render all shapes on the canvas
+ * Shapes are sorted by radius (largest first) so smaller circles appear on top
  * Selected shapes are drawn last so they appear on top and can be dragged
  * even when overlapping with other shapes
  * 
@@ -76,10 +77,14 @@ export function renderShapes(
   // Determine if we're in detailed measurement mode (where UI hiding applies)
   const isDetailedMeasureMode = measurementMode === 'detailed'
   
-  // Two-pass rendering without creating new arrays:
-  // Pass 1: Draw non-selected shapes (underneath)
-  for (let i = 0; i < shapes.length; i++) {
-    const shape = shapes[i]
+  // Sort shapes by radius (largest first) so smaller circles are drawn on top
+  // This ensures no circle is ever entirely hidden by another
+  const sortedShapes = [...shapes].sort((a, b) => b.radius - a.radius)
+  
+  // Two-pass rendering:
+  // Pass 1: Draw non-selected shapes (underneath), largest first
+  for (let i = 0; i < sortedShapes.length; i++) {
+    const shape = sortedShapes[i]
     if (selectedSet.has(shape.id)) continue // Skip selected, draw later
     
     if (shape.type === 'circle') {
@@ -110,9 +115,9 @@ export function renderShapes(
     }
   }
   
-  // Pass 2: Draw selected shapes (on top)
-  for (let i = 0; i < shapes.length; i++) {
-    const shape = shapes[i]
+  // Pass 2: Draw selected shapes (on top), largest first
+  for (let i = 0; i < sortedShapes.length; i++) {
+    const shape = sortedShapes[i]
     if (!selectedSet.has(shape.id)) continue // Skip non-selected
     
     if (shape.type === 'circle') {
@@ -148,8 +153,11 @@ export function renderShapes(
   // Note: getMirroredCircles is optimized to only create objects for mirrored circles
   const mirroredCircles = getMirroredCircles(shapes as CircleShape[], mirrorAxis)
   
-  for (let i = 0; i < mirroredCircles.length; i++) {
-    const mirrorCircle = mirroredCircles[i]
+  // Sort mirrored circles by radius (largest first) to maintain consistent draw order
+  const sortedMirroredCircles = [...mirroredCircles].sort((a, b) => b.radius - a.radius)
+  
+  for (let i = 0; i < sortedMirroredCircles.length; i++) {
+    const mirrorCircle = sortedMirroredCircles[i]
     // Find the original circle to get its hover/selection state
     // The mirrored circle's ID is `${originalId}_mirror`
     const originalId = mirrorCircle.id.replace('_mirror', '')

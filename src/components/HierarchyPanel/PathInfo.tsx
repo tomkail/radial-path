@@ -1,9 +1,18 @@
 import { useMemo } from 'react'
 import { useDocumentStore } from '../../stores/documentStore'
 import { computeTangentHull } from '../../geometry/path'
-import { LoopPathIcon, OpenPathIcon, StartPointIcon, EndPointIcon } from '../icons/Icons'
+import { PathModeIcon, type PathMode } from '../icons/Icons'
 import type { CircleShape } from '../../types'
 import styles from './HierarchyPanel.module.css'
+
+// Human-readable mode names for tooltip
+const pathModeLabels: Record<PathMode, string> = {
+  'tangent': 'Tangent only',
+  'left-arc': 'Left arc',
+  'right-arc': 'Right arc',
+  'both-arcs': 'Both arcs',
+  'closed': 'Closed loop'
+}
 
 export function PathInfo() {
   const shapes = useDocumentStore(state => state.shapes)
@@ -12,9 +21,14 @@ export function PathInfo() {
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
   const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
-  const toggleClosedPath = useDocumentStore(state => state.toggleClosedPath)
-  const toggleUseStartPoint = useDocumentStore(state => state.toggleUseStartPoint)
-  const toggleUseEndPoint = useDocumentStore(state => state.toggleUseEndPoint)
+  const cyclePathMode = useDocumentStore(state => state.cyclePathMode)
+  
+  // Derive current path mode from state
+  const pathMode: PathMode = closedPath ? 'closed' 
+    : (useStartPoint && useEndPoint) ? 'both-arcs'
+    : useStartPoint ? 'left-arc'
+    : useEndPoint ? 'right-arc'
+    : 'tangent'
   
   const pathData = useMemo(() => {
     const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
@@ -40,27 +54,11 @@ export function PathInfo() {
         <div className={styles.pathInfoRow}>
           <div className={styles.endModeGroup}>
             <button
-              className={`${styles.endModeButton} ${closedPath ? styles.endModeActive : ''}`}
-              onClick={toggleClosedPath}
-              title={closedPath ? "Open path (has start and end)" : "Loop path (connect end to start)"}
+              className={`${styles.endModeButton} ${pathMode !== 'tangent' ? styles.endModeActive : ''}`}
+              onClick={cyclePathMode}
+              title={`${pathModeLabels[pathMode]} (click to cycle)`}
             >
-              {closedPath ? <LoopPathIcon size={16} /> : <OpenPathIcon size={16} />}
-            </button>
-            <button
-              className={`${styles.endModeButton} ${useStartPoint ? styles.endModeActive : ''} ${closedPath ? styles.endModeDisabled : ''}`}
-              onClick={toggleUseStartPoint}
-              disabled={closedPath}
-              title="Use start point on first circle"
-            >
-              <StartPointIcon size={16} />
-            </button>
-            <button
-              className={`${styles.endModeButton} ${useEndPoint ? styles.endModeActive : ''} ${closedPath ? styles.endModeDisabled : ''}`}
-              onClick={toggleUseEndPoint}
-              disabled={closedPath}
-              title="Use end point on last circle"
-            >
-              <EndPointIcon size={16} />
+              <PathModeIcon size={16} mode={pathMode} />
             </button>
           </div>
         </div>

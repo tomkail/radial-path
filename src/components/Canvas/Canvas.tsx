@@ -12,7 +12,7 @@ import { renderShapes, renderSelectedTangentHandles } from './renderers/ShapeRen
 import { renderPath } from './renderers/PathRenderer'
 import { renderMeasurements } from './renderers/MeasurementRenderer'
 import { renderHandleValues } from './renderers/HandleValueRenderer'
-import { renderTooltips } from './renderers/TooltipRenderer'
+import { renderTooltips, renderScalePivotMarker } from './renderers/TooltipRenderer'
 import { renderSmartGuides } from './renderers/SmartGuidesRenderer'
 import { hasActiveAnimations } from './renderers/opacityAnimation'
 import { drawPlusIconCanvas } from '../icons/Icons'
@@ -91,10 +91,13 @@ export function Canvas() {
   const clickPreview = useSelectionStore(state => state.clickPreview)
   const activeGuides = useSelectionStore(state => state.activeGuides)
   const mouseWorldPos = useSelectionStore(state => state.mouseWorldPos)
+  const modifierKeys = useSelectionStore(state => state.modifierKeys)
   const gridSize = useSettingsStore(state => state.gridSize)
   const showGrid = useSettingsStore(state => state.showGrid)
   const measurementMode = useSettingsStore(state => state.measurementMode)
   const isolatePath = useSettingsStore(state => state.isolatePath)
+  const snapToGrid = useSettingsStore(state => state.snapToGrid)
+  const smartGuides = useSettingsStore(state => state.smartGuides)
   const theme = useThemeStore(state => state.theme)
   
   // Debug state - subscribe to trigger re-render when debug settings change
@@ -280,8 +283,18 @@ export function Canvas() {
           closedPath,
           useStartPoint,
           useEndPoint,
-          mirrorAxis
+          mirrorAxis,
+          modifierKeys,
+          mouseWorldPos,
+          snapToGrid,
+          smartGuides,
+          selectedIds.length
         )
+      }
+      
+      // Scale pivot marker (shown during scale drag with Alt modifier)
+      if (dragState?.mode === 'scale' && dragState.scaleAnchor) {
+        renderScalePivotMarker(ctx, dragState.scaleAnchor, theme, zoom)
       }
       
       // Measurements on top of everything

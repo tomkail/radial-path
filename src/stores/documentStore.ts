@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Shape, SerpentineDocument, CircleShape, MirrorAxis } from '../types'
 import { defaultPreset } from '../utils/presets'
 import { startMeasure, endMeasure } from '../utils/profiler'
+import type { PathMode } from '../components/icons/Icons'
 
 // Startup timing - runs during module evaluation
 const moduleStartTime = performance.now()
@@ -52,6 +53,9 @@ interface DocumentState {
   setUseStartPoint: (use: boolean) => void
   toggleUseEndPoint: () => void
   setUseEndPoint: (use: boolean) => void
+  getPathMode: () => PathMode
+  cyclePathMode: () => void
+  setPathMode: (mode: PathMode) => void
   reset: () => void
   loadDocument: (data: SerpentineDocument) => void
   setFileName: (name: string | null) => void
@@ -283,6 +287,62 @@ export const useDocumentStore = create<DocumentState>()(
       })),
       
       setUseEndPoint: (use) => set({ useEndPoint: use, isDirty: true }),
+      
+      // Get current path mode from state
+      getPathMode: () => {
+        const state = get()
+        if (state.closedPath) return 'closed'
+        if (state.useStartPoint && state.useEndPoint) return 'both-arcs'
+        if (state.useStartPoint) return 'left-arc'
+        if (state.useEndPoint) return 'right-arc'
+        return 'tangent'
+      },
+      
+      // Cycle through path modes: tangent → left-arc → right-arc → both-arcs → closed → tangent
+      cyclePathMode: () => set((state) => {
+        const currentMode = state.closedPath ? 'closed' 
+          : (state.useStartPoint && state.useEndPoint) ? 'both-arcs'
+          : state.useStartPoint ? 'left-arc'
+          : state.useEndPoint ? 'right-arc'
+          : 'tangent'
+        
+        const modeOrder: PathMode[] = ['tangent', 'left-arc', 'right-arc', 'both-arcs', 'closed']
+        const currentIndex = modeOrder.indexOf(currentMode)
+        const nextMode = modeOrder[(currentIndex + 1) % modeOrder.length]
+        
+        switch (nextMode) {
+          case 'tangent':
+            return { closedPath: false, useStartPoint: false, useEndPoint: false, isDirty: true }
+          case 'left-arc':
+            return { closedPath: false, useStartPoint: true, useEndPoint: false, isDirty: true }
+          case 'right-arc':
+            return { closedPath: false, useStartPoint: false, useEndPoint: true, isDirty: true }
+          case 'both-arcs':
+            return { closedPath: false, useStartPoint: true, useEndPoint: true, isDirty: true }
+          case 'closed':
+            return { closedPath: true, isDirty: true }
+          default:
+            return {}
+        }
+      }),
+      
+      // Set a specific path mode
+      setPathMode: (mode: PathMode) => set(() => {
+        switch (mode) {
+          case 'tangent':
+            return { closedPath: false, useStartPoint: false, useEndPoint: false, isDirty: true }
+          case 'left-arc':
+            return { closedPath: false, useStartPoint: true, useEndPoint: false, isDirty: true }
+          case 'right-arc':
+            return { closedPath: false, useStartPoint: false, useEndPoint: true, isDirty: true }
+          case 'both-arcs':
+            return { closedPath: false, useStartPoint: true, useEndPoint: true, isDirty: true }
+          case 'closed':
+            return { closedPath: true, isDirty: true }
+          default:
+            return {}
+        }
+      }),
       
       reset: () => set(createDefaultDocument()),
       

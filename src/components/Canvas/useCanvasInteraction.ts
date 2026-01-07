@@ -15,7 +15,7 @@ import {
   computeTangentHandleInfo, 
   type TangentHandleType 
 } from './renderers/ShapeRenderer'
-import { snapPointToGrid, snapToGrid, distance, angle } from '../../geometry/math'
+import { snapPointToGrid, snapToGrid, distance, angle, normalize, subtract } from '../../geometry/math'
 import { expandMirroredCircles, findPathSegmentAt, findClosestPointOnPath, calculateNonOverlappingRadius } from '../../geometry/path'
 import type { Point, CircleShape, DragMode, HoverTarget, MarqueeMode, Rect } from '../../types'
 import {
@@ -67,6 +67,39 @@ function getMarqueeMode(e: MouseEvent | KeyboardEvent): MarqueeMode {
   return 'replace'
 }
 
+/**
+ * Calculate the exact opposite point on the circle from the cursor
+ */
+function findExactOppositePoint(circle: CircleShape, cursor: Point): Point {
+  const { center, radius } = circle
+  const dir = normalize(subtract(cursor, center))
+  // Return the point on the opposite side
+  return {
+    x: center.x - dir.x * radius,
+    y: center.y - dir.y * radius
+  }
+}
+
+/**
+ * Find the closest circle to a given point
+ */
+function findClosestCircle(circles: CircleShape[], point: Point): CircleShape | null {
+  if (circles.length === 0) return null
+  
+  let closestCircle: CircleShape | null = null
+  let minDist = Infinity
+  
+  for (const circle of circles) {
+    const dist = distance(point, circle.center)
+    if (dist < minDist) {
+      minDist = dist
+      closestCircle = circle
+    }
+  }
+  
+  return closestCircle
+}
+
 export function useCanvasInteraction(
   canvasRef: RefObject<HTMLCanvasElement>,
   _containerRef: RefObject<HTMLDivElement>
@@ -108,6 +141,7 @@ export function useCanvasInteraction(
   const setActiveGuides = useSelectionStore(state => state.setActiveGuides)
   const clearActiveGuides = useSelectionStore(state => state.clearActiveGuides)
   const setMouseWorldPos = useSelectionStore(state => state.setMouseWorldPos)
+  const setModifierKeys = useSelectionStore(state => state.setModifierKeys)
   
   const snapToGridEnabled = useSettingsStore(state => state.snapToGrid)
   const smartGuidesEnabled = useSettingsStore(state => state.smartGuides)
@@ -307,14 +341,21 @@ export function useCanvasInteraction(
       // Calculate non-overlapping radius (reuse the existing circles array from scope)
       const radius = calculateNonOverlappingRadius(pathHit.point, circles)
       
+      // Find closest circle to inherit mirror setting from
+      const closestCircle = findClosestCircle(circles, pathHit.point)
+      
       // Create new circle
       const circleCount = shapes.filter(s => s.type === 'circle').length
-      const newCircle = createCircle(
-        pathHit.point,
-        radius,
-        undefined,
-        `Circle ${circleCount + 1}`
-      )
+      const newCircle: CircleShape = {
+        ...createCircle(
+          pathHit.point,
+          radius,
+          undefined,
+          `Circle ${circleCount + 1}`
+        ),
+        // Inherit mirror setting from closest circle
+        mirrored: closestCircle?.mirrored
+      }
       
       // Insert at the correct position in the path order
       const insertIndex = pathHit.fromCircleIndex + 1
@@ -332,14 +373,21 @@ export function useCanvasInteraction(
     // Calculate non-overlapping radius at the click position
     const radius = calculateNonOverlappingRadius(worldPos, circles)
     
+    // Find closest circle to inherit mirror setting from
+    const closestCircle = findClosestCircle(circles, worldPos)
+    
     // Create new circle at the click position (not the nearest path point)
     const circleCount = shapes.filter(s => s.type === 'circle').length
-    const newCircle = createCircle(
-      worldPos,
-      radius,
-      undefined,
-      `Circle ${circleCount + 1}`
-    )
+    const newCircle: CircleShape = {
+      ...createCircle(
+        worldPos,
+        radius,
+        undefined,
+        `Circle ${circleCount + 1}`
+      ),
+      // Inherit mirror setting from closest circle
+      mirrored: closestCircle?.mirrored
+    }
     
     // Insert at the appropriate position in the path order
     const insertIndex = closestPathHit ? closestPathHit.fromCircleIndex + 1 : shapeOrder.length
@@ -484,16 +532,30 @@ export function useCanvasInteraction(
       if (hit.shape) {
         const { shape, hoverTarget, tangentHandle } = hit
         
-        // Click on delete icon: delete the shape
+        // Click on delete icon: delete the shape (or all selected if Shift held)
         if (hoverTarget?.type === 'delete-icon') {
-          removeShape(shape.id)
+          if (e.shiftKey && selectedIds.length > 1) {
+            // Delete all selected shapes
+            for (const id of selectedIds) {
+              removeShape(id)
+            }
+          } else {
+            removeShape(shape.id)
+          }
           clearSelection()
           return
         }
         
-        // Click on mirror icon: toggle mirroring
+        // Click on mirror icon: toggle mirroring (or all selected if Shift held)
         if (hoverTarget?.type === 'mirror-icon') {
-          toggleMirror(shape.id)
+          if (e.shiftKey && selectedIds.length > 1) {
+            // Toggle mirror on all selected shapes
+            for (const id of selectedIds) {
+              toggleMirror(id)
+            }
+          } else {
+            toggleMirror(shape.id)
+          }
           return
         }
         
@@ -513,9 +575,16 @@ export function useCanvasInteraction(
           return
         }
         
-        // Click on direction ring: toggle direction
+        // Click on direction ring: toggle direction (or all selected if Shift held)
         if (hoverTarget?.type === 'direction-ring') {
-          toggleDirection(shape.id)
+          if (e.shiftKey && selectedIds.length > 1) {
+            // Toggle direction on all selected shapes
+            for (const id of selectedIds) {
+              toggleDirection(id)
+            }
+          } else {
+            toggleDirection(shape.id)
+          }
           return
         }
         
@@ -590,8 +659,9 @@ export function useCanvasInteraction(
         const mode = isEdge ? 'scale' : 'move'
         const isAlreadySelected = selectedIds.includes(shape.id)
         
-        // Shift-click: toggle selection without starting drag
-        if (e.shiftKey) {
+        // Shift-click on body: toggle selection without starting drag
+        // (But allow Shift+drag on edge for multi-select scaling)
+        if (e.shiftKey && !isEdge) {
           select(shape.id, true) // additive/toggle mode
           return
         }
@@ -599,6 +669,21 @@ export function useCanvasInteraction(
         // Update scale cursor angle for edge dragging
         if (isEdge) {
           scaleCursorAngle.current = angle(shape.center, worldPos)
+        }
+        
+        // Determine scale anchor point for non-center scaling
+        // Alt key enables alternative scaling mode:
+        //   - With snapping on: anchor = cardinal snap point on opposite side (top/bottom/left/right)
+        //   - With snapping off: anchor = exact opposite point from cursor
+        // Without Alt: always center-based scaling (scaleAnchor = undefined)
+        let scaleAnchor: Point | undefined
+        if (isEdge && e.altKey) {
+          // Alt: anchor = exact opposite point from cursor
+          scaleAnchor = findExactOppositePoint(shape, worldPos)
+          // Snap anchor to grid if snapping is enabled
+          if (snapToGridEnabled) {
+            scaleAnchor = snapPointToGrid(scaleAnchor, POSITION_SNAP_INCREMENT)
+          }
         }
         
         // For move operations, capture starting positions of all shapes to move
@@ -617,18 +702,47 @@ export function useCanvasInteraction(
           // Otherwise: single shape move (handled by default dragState.startCenter)
         }
         
+        // For scale operations, capture starting radii and centers of all selected shapes
+        // (used for Shift+drag multi-select scaling)
+        let shapeRadii: Map<string, { radius: number; center: Point }> | undefined
+        if (mode === 'scale' && isAlreadySelected && selectedIds.length > 1) {
+          shapeRadii = new Map()
+          for (const id of selectedIds) {
+            const s = shapes.find(sh => sh.id === id)
+            if (s && s.type === 'circle') {
+              shapeRadii.set(id, { radius: s.radius, center: { ...s.center } })
+            }
+          }
+        }
+        
         // If clicking on unselected shape (without shift), replace selection
         if (!isAlreadySelected) {
           select(shape.id, false)
         }
         
+        // For scale mode, clamp the start point to be exactly on the circle edge
+        let startPoint = worldPos
+        if (isEdge) {
+          const dirToMouse = normalize(subtract(worldPos, shape.center))
+          startPoint = {
+            x: shape.center.x + dirToMouse.x * shape.radius,
+            y: shape.center.y + dirToMouse.y * shape.radius
+          }
+          // Snap the clamped point to grid if snapping is enabled
+          if (snapToGridEnabled) {
+            startPoint = snapPointToGrid(startPoint, POSITION_SNAP_INCREMENT)
+          }
+        }
+        
         setDragState({
           mode,
           shapeId: shape.id,
-          startPoint: worldPos,
+          startPoint,
           startCenter: { ...shape.center },
           startRadius: shape.radius,
-          shapeStarts
+          shapeStarts,
+          shapeRadii,
+          scaleAnchor
         })
         
         canvas.style.cursor = mode === 'scale' ? getScaleCursor(scaleCursorAngle.current) : 'move'
@@ -873,15 +987,89 @@ export function useCanvasInteraction(
           updateShape(dragState.shapeId, { center: newCenter })
         }
       } else if (dragState.mode === 'scale') {
-        const distFromCenter = distance(worldPos, dragState.startCenter)
-        let newRadius = Math.max(5, distFromCenter)
+        const anchor = dragState.scaleAnchor
         
-        if (snapToGridEnabled || e.shiftKey) {
-          newRadius = snapToGrid(newRadius, RADIUS_SNAP_INCREMENT)
-          newRadius = Math.max(RADIUS_SNAP_INCREMENT, newRadius)
+        if (!anchor) {
+          // Center-based scaling (default behavior)
+          // The center stays fixed, radius is distance from cursor to center
+          const distFromCenter = distance(worldPos, dragState.startCenter)
+          let newRadius = Math.max(5, distFromCenter)
+          
+          if (snapToGridEnabled) {
+            newRadius = snapToGrid(newRadius, RADIUS_SNAP_INCREMENT)
+            newRadius = Math.max(RADIUS_SNAP_INCREMENT, newRadius)
+          }
+          
+          // Shift: scale all selected shapes proportionally
+          if (e.shiftKey && dragState.shapeRadii && dragState.shapeRadii.size > 1) {
+            const scaleFactor = newRadius / dragState.startRadius
+            dragState.shapeRadii.forEach((data, id) => {
+              if (id !== dragState.shapeId) {
+                let scaledRadius = Math.max(5, data.radius * scaleFactor)
+                if (snapToGridEnabled) {
+                  scaledRadius = snapToGrid(scaledRadius, RADIUS_SNAP_INCREMENT)
+                  scaledRadius = Math.max(RADIUS_SNAP_INCREMENT, scaledRadius)
+                }
+                updateShape(id, { radius: scaledRadius })
+              }
+            })
+          }
+          
+          updateShape(dragState.shapeId, { radius: newRadius })
+        } else {
+          // Anchor-based scaling (Alt key)
+          // The anchor point stays fixed, scaling only along the line from anchor to start point
+          // This prevents the circle from "orbiting" around the pivot
+          
+          // Direction from anchor to the original drag start point (fixed axis)
+          const axisDir = normalize(subtract(dragState.startPoint, anchor))
+          
+          // Project cursor onto the line from anchor through startPoint
+          // t = (cursor - anchor) · axisDir (signed distance along axis)
+          const cursorVec = subtract(worldPos, anchor)
+          const t = cursorVec.x * axisDir.x + cursorVec.y * axisDir.y
+          
+          // Projected point on the axis line
+          let projectedPoint = {
+            x: anchor.x + t * axisDir.x,
+            y: anchor.y + t * axisDir.y
+          }
+          
+          // Snap the projected point to grid if enabled
+          if (snapToGridEnabled) {
+            projectedPoint = snapPointToGrid(projectedPoint, POSITION_SNAP_INCREMENT)
+          }
+          
+          // New diameter = distance from anchor to projected point
+          // New radius = half that
+          const distToProjected = distance(projectedPoint, anchor)
+          let newRadius = Math.max(5, distToProjected / 2)
+          
+          // Center is midpoint between anchor and projected point
+          let newCenter = {
+            x: (anchor.x + projectedPoint.x) / 2,
+            y: (anchor.y + projectedPoint.y) / 2
+          }
+          
+          newRadius = Math.max(5, newRadius)
+          
+          // Shift: scale all selected shapes proportionally (anchor-based mode)
+          if (e.shiftKey && dragState.shapeRadii && dragState.shapeRadii.size > 1) {
+            const scaleFactor = newRadius / dragState.startRadius
+            dragState.shapeRadii.forEach((data, id) => {
+              if (id !== dragState.shapeId) {
+                let scaledRadius = Math.max(5, data.radius * scaleFactor)
+                if (snapToGridEnabled) {
+                  scaledRadius = snapToGrid(scaledRadius, RADIUS_SNAP_INCREMENT)
+                  scaledRadius = Math.max(RADIUS_SNAP_INCREMENT, scaledRadius)
+                }
+                updateShape(id, { radius: scaledRadius })
+              }
+            })
+          }
+          
+          updateShape(dragState.shapeId, { center: newCenter, radius: newRadius })
         }
-        
-        updateShape(dragState.shapeId, { radius: newRadius })
       } else if (dragState.mode === 'tangent-entry-offset' || dragState.mode === 'tangent-exit-offset') {
         const angleToMouse = angle(shape.center, worldPos)
         const clockwise = (shape.direction ?? 'cw') === 'cw'
@@ -1113,6 +1301,14 @@ export function useCanvasInteraction(
     window.addEventListener('mouseup', handleGlobalMouseUp)
     
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Update modifier keys state
+      setModifierKeys({
+        alt: e.altKey,
+        shift: e.shiftKey,
+        ctrl: e.ctrlKey,
+        meta: e.metaKey
+      })
+      
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -1130,6 +1326,14 @@ export function useCanvasInteraction(
     }
     
     const handleKeyUp = (e: KeyboardEvent) => {
+      // Update modifier keys state
+      setModifierKeys({
+        alt: e.altKey,
+        shift: e.shiftKey,
+        ctrl: e.ctrlKey,
+        meta: e.metaKey
+      })
+      
       if (e.code === 'Space') {
         spaceKeyHeld.current = false
         if (canvas && !dragState) {

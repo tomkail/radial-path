@@ -90,14 +90,23 @@
   padding: 12px;
 }
 
+/* Controls row */
+.controlsRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+}
+
 /* Stroke width slider */
 .sliderRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--panel-border);
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -149,6 +158,60 @@
   min-width: 24px;
   text-align: right;
   flex-shrink: 0;
+}
+
+/* Fill toggle */
+.fillToggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-secondary);
+  user-select: none;
+  transition: color 0.1s;
+  flex-shrink: 0;
+}
+
+.fillToggle:hover {
+  color: var(--text-primary);
+}
+
+.fillToggle input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
+}
+
+/* Export button */
+.exportButton {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--accent-ghost);
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.exportButton:hover:not(:disabled) {
+  background: var(--accent-dim);
+  border-color: var(--accent-color);
+}
+
+.exportButton:active:not(:disabled) {
+  background: var(--accent-color);
+  color: var(--panel-bg);
+}
+
+.exportButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Resize handles */

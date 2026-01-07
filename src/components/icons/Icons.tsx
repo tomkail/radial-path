@@ -80,10 +80,31 @@ export function SmartGuidesIcon({ size = 16, className, color = 'currentColor' }
 // ============================================================================
 
 /**
- * Loop Path Icon - Continuous closed shape
- * Indicates the path connects end back to start (closed loop)
+ * Path mode values for the cycle button
  */
-export function LoopPathIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+export type PathMode = 'tangent' | 'left-arc' | 'right-arc' | 'both-arcs' | 'closed'
+
+interface PathModeIconProps extends IconProps {
+  mode: PathMode
+}
+
+/**
+ * Path Mode Icon - Shows two circles with connecting path
+ * Used as a cycle button to switch between 5 path construction modes:
+ * 1. tangent - straight line only
+ * 2. left-arc - left semicircle arc
+ * 3. right-arc - right semicircle arc
+ * 4. both-arcs - both arcs (open path)
+ * 5. closed - complete closed stadium shape
+ */
+export function PathModeIcon({ size = 16, className, color = 'currentColor', mode }: PathModeIconProps) {
+  // Circle centers and radius for the stadium shape
+  // Left circle center: (4.5, 8), Right circle center: (11.5, 8), radius: 3.5
+  const leftCx = 4.5
+  const rightCx = 11.5
+  const cy = 8
+  const r = 3.5
+  
   return (
     <svg 
       width={size} 
@@ -93,47 +114,82 @@ export function LoopPathIcon({ size = 16, className, color = 'currentColor' }: I
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Closed organic shape - clearly shows a continuous connected path */}
-      <path 
-        d="M8 2.5 L12.5 5.5 L11.5 11 L4.5 11 L3.5 5.5 Z" 
-        stroke={color} 
-        strokeWidth="1.75" 
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      {/* Guide circles (always shown, subtle) */}
+      <circle cx={leftCx} cy={cy} r={r} stroke={color} strokeWidth="0.75" opacity="0.3" fill="none" />
+      <circle cx={rightCx} cy={cy} r={r} stroke={color} strokeWidth="0.75" opacity="0.3" fill="none" />
+      
+      {/* Active path segments based on mode */}
+      {mode === 'tangent' && (
+        /* Just the bottom tangent line */
+        <line 
+          x1={leftCx} y1={cy + r} 
+          x2={rightCx} y2={cy + r} 
+          stroke={color} 
+          strokeWidth="1.75" 
+          strokeLinecap="round"
+        />
+      )}
+      
+      {mode === 'left-arc' && (
+        /* Left arc + bottom tangent */
+        <path 
+          d={`M ${rightCx} ${cy + r} L ${leftCx} ${cy + r} A ${r} ${r} 0 1 1 ${leftCx} ${cy - r}`}
+          stroke={color} 
+          strokeWidth="1.75" 
+          strokeLinecap="round"
+          fill="none"
+        />
+      )}
+      
+      {mode === 'right-arc' && (
+        /* Right arc + bottom tangent */
+        <path 
+          d={`M ${leftCx} ${cy + r} L ${rightCx} ${cy + r} A ${r} ${r} 0 1 0 ${rightCx} ${cy - r}`}
+          stroke={color} 
+          strokeWidth="1.75" 
+          strokeLinecap="round"
+          fill="none"
+        />
+      )}
+      
+      {mode === 'both-arcs' && (
+        /* Both arcs + bottom tangent (open at top) */
+        <path 
+          d={`M ${leftCx} ${cy - r} A ${r} ${r} 0 1 0 ${leftCx} ${cy + r} L ${rightCx} ${cy + r} A ${r} ${r} 0 1 0 ${rightCx} ${cy - r}`}
+          stroke={color} 
+          strokeWidth="1.75" 
+          strokeLinecap="round"
+          fill="none"
+        />
+      )}
+      
+      {mode === 'closed' && (
+        /* Complete closed stadium shape */
+        <path 
+          d={`M ${leftCx} ${cy - r} A ${r} ${r} 0 1 0 ${leftCx} ${cy + r} L ${rightCx} ${cy + r} A ${r} ${r} 0 1 0 ${rightCx} ${cy - r} Z`}
+          stroke={color} 
+          strokeWidth="1.75" 
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      )}
     </svg>
   )
 }
 
 /**
- * Open Path Icon - Curved line with distinct endpoints
- * Indicates the path has distinct start and end points (not looped)
+ * Loop Path Icon - Continuous closed shape (legacy, uses PathModeIcon)
+ */
+export function LoopPathIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
+  return <PathModeIcon size={size} className={className} color={color} mode="closed" />
+}
+
+/**
+ * Open Path Icon - Open path with both arcs (legacy, uses PathModeIcon)
  */
 export function OpenPathIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
-  return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 16 16" 
-      fill="none" 
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Curved path - S-curve showing an open bezier path */}
-      <path 
-        d="M3 11 C6 11, 5 5, 8 5 C11 5, 10 11, 13 11" 
-        stroke={color} 
-        strokeWidth="1.75" 
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Start endpoint marker */}
-      <circle cx="3" cy="11" r="1.5" fill={color} />
-      {/* End endpoint marker */}
-      <circle cx="13" cy="11" r="1.5" fill={color} />
-    </svg>
-  )
+  return <PathModeIcon size={size} className={className} color={color} mode="both-arcs" />
 }
 
 /**

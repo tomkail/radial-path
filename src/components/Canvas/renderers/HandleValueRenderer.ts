@@ -241,6 +241,18 @@ export function renderHandleValues(
   const isSelected = selectedIds.includes(interactedId)
   const isDragging = dragMode !== null
 
+  // Skip rendering when tooltip would show combined value + action
+  // (tooltips only show when not dragging, so we only show values here during drag)
+  const hasTooltipWithValue = hoverTarget?.type === 'shape-edge' ||
+                              hoverTarget?.type === 'entry-offset' ||
+                              hoverTarget?.type === 'exit-offset' ||
+                              hoverTarget?.type === 'entry-length' ||
+                              hoverTarget?.type === 'exit-length'
+  
+  if (!isDragging && hasTooltipWithValue) {
+    return // Tooltip will show the value
+  }
+
   // For body/edge hover, only show when selected or dragging
   if (!isSelected && !isDragging) {
     // Exception: still show for tangent handles on selected shapes

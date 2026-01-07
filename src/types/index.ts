@@ -126,11 +126,15 @@ export interface DragState {
   startOtherTangentLength?: number // Initial tangent length of the other handle
   // For multi-select move: track all selected shapes' starting centers
   shapeStarts?: Map<string, Point>
+  // For multi-select scale: track all selected shapes' starting radii and centers
+  shapeRadii?: Map<string, { radius: number; center: Point }>
   // For marquee selection
   marqueeMode?: MarqueeMode
   marqueeStart?: Point  // Start point of the marquee rectangle
   marqueeCurrent?: Point  // Current point (end of rectangle)
   originalSelection?: string[]  // Selection before marquee started (for add/subtract modes)
+  // For scaling: the fixed anchor point (center, opposite point, or snap point)
+  scaleAnchor?: Point
 }
 
 // Settings types

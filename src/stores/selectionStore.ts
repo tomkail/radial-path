@@ -67,6 +67,13 @@ export function getMarqueeRect(dragState: DragState | null): Rect | null {
   }
 }
 
+export interface ModifierKeys {
+  alt: boolean
+  shift: boolean
+  ctrl: boolean
+  meta: boolean
+}
+
 interface SelectionState {
   // State
   selectedIds: string[]
@@ -76,6 +83,7 @@ interface SelectionState {
   clickPreview: ClickPreview | null  // Preview circle shown after single-click
   activeGuides: SmartGuide[]  // Smart guides shown during drag
   mouseWorldPos: Point | null  // Current mouse position in world coordinates
+  modifierKeys: ModifierKeys  // Currently held modifier keys
   
   // Actions
   select: (id: string, additive?: boolean) => void
@@ -90,6 +98,7 @@ interface SelectionState {
   setActiveGuides: (guides: SmartGuide[]) => void
   clearActiveGuides: () => void
   setMouseWorldPos: (pos: Point | null) => void
+  setModifierKeys: (keys: Partial<ModifierKeys>) => void
 }
 
 // Store timeout ID for clearing preview
@@ -103,6 +112,7 @@ export const useSelectionStore = create<SelectionState>()((set) => ({
   clickPreview: null,
   activeGuides: [],
   mouseWorldPos: null,
+  modifierKeys: { alt: false, shift: false, ctrl: false, meta: false },
   
   select: (id, additive = false) => set((state) => {
     if (additive) {
@@ -158,5 +168,9 @@ export const useSelectionStore = create<SelectionState>()((set) => ({
   
   clearActiveGuides: () => set({ activeGuides: [] }),
   
-  setMouseWorldPos: (pos) => set({ mouseWorldPos: pos })
+  setMouseWorldPos: (pos) => set({ mouseWorldPos: pos }),
+  
+  setModifierKeys: (keys) => set((state) => ({
+    modifierKeys: { ...state.modifierKeys, ...keys }
+  }))
 }))

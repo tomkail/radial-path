@@ -14,7 +14,6 @@ import {
   Scan as FrameIcon,
   FlipHorizontal as VerticalAxisIcon,
   FlipVertical as HorizontalAxisIcon,
-  FileCode as SvgPreviewIcon,
   Ruler as RulerIcon,
   Undo2 as UndoIcon,
   Redo2 as RedoIcon,
@@ -23,7 +22,7 @@ import {
   Settings as SettingsIcon
 } from 'lucide-react'
 import { 
-  LoopPathIcon, OpenPathIcon, StartPointIcon, EndPointIcon, SmartGuidesIcon 
+  PathModeIcon, SmartGuidesIcon, type PathMode 
 } from '../icons/Icons'
 import { Tooltip } from '../Tooltip/Tooltip'
 import styles from './Toolbar.module.css'
@@ -146,10 +145,24 @@ export function Toolbar() {
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
   const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
   const shapes = useDocumentStore(state => state.shapes)
-  const toggleClosedPath = useDocumentStore(state => state.toggleClosedPath)
-  const toggleUseStartPoint = useDocumentStore(state => state.toggleUseStartPoint)
-  const toggleUseEndPoint = useDocumentStore(state => state.toggleUseEndPoint)
+  const cyclePathMode = useDocumentStore(state => state.cyclePathMode)
   const toggleMirrorAxis = useDocumentStore(state => state.toggleMirrorAxis)
+  
+  // Derive current path mode from state
+  const pathMode: PathMode = closedPath ? 'closed' 
+    : (useStartPoint && useEndPoint) ? 'both-arcs'
+    : useStartPoint ? 'left-arc'
+    : useEndPoint ? 'right-arc'
+    : 'tangent'
+  
+  // Human-readable mode names for tooltip
+  const pathModeLabels: Record<PathMode, string> = {
+    'tangent': 'Tangent only',
+    'left-arc': 'Left arc',
+    'right-arc': 'Right arc',
+    'both-arcs': 'Both arcs',
+    'closed': 'Closed loop'
+  }
   
   // History state
   const canUndo = useHistoryStore(state => state.canUndo)
@@ -257,33 +270,13 @@ export function Toolbar() {
       
       {/* === PATH ZONE === */}
       <div className={styles.group}>
-        <Tooltip text={closedPath ? "Open path" : "Loop path"}>
+        <Tooltip text={`Path mode: ${pathModeLabels[pathMode]} (click to cycle)`}>
           <button
-            className={`${styles.iconToggle} ${closedPath ? styles.active : ''}`}
-            onClick={toggleClosedPath}
-            aria-label={closedPath ? "Loop path (closed)" : "Open path"}
+            className={`${styles.iconToggle} ${pathMode !== 'tangent' ? styles.active : ''}`}
+            onClick={cyclePathMode}
+            aria-label={`Path mode: ${pathModeLabels[pathMode]}`}
           >
-            {closedPath ? <LoopPathIcon size={20} /> : <OpenPathIcon size={20} />}
-          </button>
-        </Tooltip>
-        <Tooltip text="Wrap path around start circle">
-          <button
-            className={`${styles.iconToggle} ${useStartPoint ? styles.active : ''} ${closedPath ? styles.disabled : ''}`}
-            onClick={toggleUseStartPoint}
-            disabled={closedPath}
-            aria-label={`Start point: ${useStartPoint ? 'on' : 'off'}`}
-          >
-            <StartPointIcon size={20} />
-          </button>
-        </Tooltip>
-        <Tooltip text="Wrap path around end circle">
-          <button
-            className={`${styles.iconToggle} ${useEndPoint ? styles.active : ''} ${closedPath ? styles.disabled : ''}`}
-            onClick={toggleUseEndPoint}
-            disabled={closedPath}
-            aria-label={`End point: ${useEndPoint ? 'on' : 'off'}`}
-          >
-            <EndPointIcon size={20} />
+            <PathModeIcon size={20} mode={pathMode} />
           </button>
         </Tooltip>
         {hasMirroredShapes && (

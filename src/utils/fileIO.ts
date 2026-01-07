@@ -461,9 +461,23 @@ function isAngleInArc(angle: number, start: number, end: number, counterclockwis
 }
 
 /**
+ * Options for SVG export
+ */
+export interface SvgExportOptions {
+  /** Stroke width as a percentage of shape size (slider value 0-12) */
+  strokeWidth?: number
+  /** Whether to include fill */
+  fill?: boolean
+  /** Stroke color */
+  strokeColor?: string
+  /** Fill color */
+  fillColor?: string
+}
+
+/**
  * Export the current path as an SVG file
  */
-export function exportSvg(): void {
+export function exportSvg(options: SvgExportOptions = {}): void {
   try {
     const docState = useDocumentStore.getState()
     
@@ -494,11 +508,39 @@ export function exportSvg(): void {
     
     // Calculate bounds for viewBox
     const bounds = calculatePathBounds(pathData.segments)
-    const padding = 20
+    
+    // Calculate stroke width based on shape size (same logic as FloatingPreview)
+    const baseWidth = bounds.maxX - bounds.minX
+    const baseHeight = bounds.maxY - bounds.minY
+    const baseDimension = Math.max(baseWidth, baseHeight, 1)
+    const strokeWidthValue = options.strokeWidth ?? 2
+    const scaledStrokeWidth = (strokeWidthValue / 100) * baseDimension
+    
+    // Add padding based on stroke width
+    const strokePadding = scaledStrokeWidth / 2
+    const padding = baseDimension * 0.05 + strokePadding * 1.5
+    
     const viewBoxX = bounds.minX - padding
     const viewBoxY = bounds.minY - padding
     const viewBoxWidth = bounds.maxX - bounds.minX + padding * 2
     const viewBoxHeight = bounds.maxY - bounds.minY + padding * 2
+    
+    // Determine fill and stroke settings
+    const strokeColor = options.strokeColor ?? '#000000'
+    const fillColor = options.fillColor ?? '#000000'
+    const hasFill = options.fill ?? false
+    const hasStroke = scaledStrokeWidth > 0
+    
+    // Build fill attribute
+    const fillAttr = hasFill ? `fill="${fillColor}"` : 'fill="none"'
+    
+    // Build stroke attributes (only include if stroke width > 0)
+    const strokeAttr = hasStroke 
+      ? `stroke="${strokeColor}" 
+        stroke-width="${scaledStrokeWidth.toFixed(3)}" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"`
+      : 'stroke="none"'
     
     // Create SVG document
     const svg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -507,11 +549,8 @@ export function exportSvg(): void {
      width="${viewBoxWidth.toFixed(0)}" 
      height="${viewBoxHeight.toFixed(0)}">
   <path d="${svgPathD}" 
-        fill="none" 
-        stroke="#000000" 
-        stroke-width="2" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"/>
+        ${fillAttr}
+        ${strokeAttr}/>
 </svg>
 `
     

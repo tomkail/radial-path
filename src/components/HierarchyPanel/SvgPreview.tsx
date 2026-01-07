@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useDocumentStore } from '../../stores/documentStore'
 import { computeTangentHull } from '../../geometry/path'
 import { pathSegmentsToSvgPath, calculatePathBounds } from '../../utils/fileIO'
@@ -6,6 +6,8 @@ import type { CircleShape } from '../../types'
 import styles from './HierarchyPanel.module.css'
 
 export function SvgPreview() {
+  const [showFill, setShowFill] = useState(false)
+  
   const shapes = useDocumentStore(state => state.shapes)
   const shapeOrder = useDocumentStore(state => state.shapeOrder)
   const globalStretch = useDocumentStore(state => state.globalStretch)
@@ -51,7 +53,9 @@ export function SvgPreview() {
   if (!svgData) {
     return (
       <div className={styles.svgSection}>
-        <div className={styles.svgHeader}>SVG PREVIEW</div>
+        <div className={styles.svgHeaderRow}>
+          <span className={styles.svgHeader}>SVG PREVIEW</span>
+        </div>
         <div className={styles.svgEmpty}>
           Add at least 2 circles to preview SVG
         </div>
@@ -61,7 +65,17 @@ export function SvgPreview() {
   
   return (
     <div className={styles.svgSection}>
-      <div className={styles.svgHeader}>SVG PREVIEW</div>
+      <div className={styles.svgHeaderRow}>
+        <span className={styles.svgHeader}>SVG PREVIEW</span>
+        <label className={styles.svgFillToggle}>
+          <input
+            type="checkbox"
+            checked={showFill}
+            onChange={(e) => setShowFill(e.target.checked)}
+          />
+          <span>Fill</span>
+        </label>
+      </div>
       <div className={styles.svgContainer}>
         <svg 
           viewBox={svgData.viewBox}
@@ -70,7 +84,7 @@ export function SvgPreview() {
         >
           <path 
             d={svgData.pathD}
-            fill="none"
+            fill={showFill ? "currentColor" : "none"}
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"

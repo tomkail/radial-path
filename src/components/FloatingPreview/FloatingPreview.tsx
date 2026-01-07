@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useDocumentStore } from '../../stores/documentStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { computeTangentHull } from '../../geometry/path'
-import { pathSegmentsToSvgPath, calculatePathBounds } from '../../utils/fileIO'
+import { pathSegmentsToSvgPath, calculatePathBounds, exportSvg } from '../../utils/fileIO'
 import type { CircleShape } from '../../types'
 import styles from './FloatingPreview.module.css'
 
@@ -42,6 +42,7 @@ export function FloatingPreview() {
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState<string | null>(null)
   const [strokeWidth, setStrokeWidth] = useState(2)
+  const [showFill, setShowFill] = useState(false)
   
   const windowRef = useRef<HTMLDivElement>(null)
   const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number }>({ x: 0, y: 0, posX: 0, posY: 0 })
@@ -182,6 +183,14 @@ export function FloatingPreview() {
     setIsResizing(null)
   }, [])
 
+  // Export handler using current preview settings
+  const handleExport = useCallback(() => {
+    exportSvg({
+      strokeWidth,
+      fill: showFill
+    })
+  }, [strokeWidth, showFill])
+
   // Set up global mouse listeners for drag and resize
   useEffect(() => {
     if (isDragging) {
@@ -237,7 +246,7 @@ export function FloatingPreview() {
             >
               <path 
                 d={svgData.pathD}
-                fill="none"
+                fill={showFill ? "currentColor" : "none"}
                 stroke="currentColor"
                 strokeWidth={svgData.scaledStrokeWidth}
                 strokeLinecap="round"
@@ -253,20 +262,40 @@ export function FloatingPreview() {
           </div>
         )}
         
-        {/* Stroke width slider */}
-        <div className={styles.sliderRow}>
-          <label className={styles.sliderLabel}>Width</label>
-          <input
-            type="range"
-            min="0.5"
-            max="12"
-            step="0.5"
-            value={strokeWidth}
-            onChange={(e) => setStrokeWidth(parseFloat(e.target.value))}
-            className={styles.slider}
-          />
-          <span className={styles.sliderValue}>{strokeWidth}</span>
+        {/* Controls row */}
+        <div className={styles.controlsRow}>
+          <div className={styles.sliderRow}>
+            <label className={styles.sliderLabel}>Width</label>
+            <input
+              type="range"
+              min="0"
+              max="12"
+              step="0.5"
+              value={strokeWidth}
+              onChange={(e) => setStrokeWidth(parseFloat(e.target.value))}
+              className={styles.slider}
+            />
+            <span className={styles.sliderValue}>{strokeWidth}</span>
+          </div>
+          <label className={styles.fillToggle}>
+            <input
+              type="checkbox"
+              checked={showFill}
+              onChange={(e) => setShowFill(e.target.checked)}
+            />
+            <span>Fill</span>
+          </label>
         </div>
+        
+        {/* Export button */}
+        <button 
+          className={styles.exportButton}
+          onClick={handleExport}
+          disabled={!svgData}
+          title="Export SVG with current settings"
+        >
+          Export SVG
+        </button>
       </div>
       
       {/* Resize handles */}
