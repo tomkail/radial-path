@@ -18,6 +18,8 @@ export function MenuBar() {
   const toggleSnap = useSettingsStore(state => state.toggleSnap)
   const cycleMeasurementMode = useSettingsStore(state => state.cycleMeasurementMode)
   const toggleGrid = useSettingsStore(state => state.toggleGrid)
+  const showSvgPreview = useSettingsStore(state => state.showSvgPreview)
+  const toggleSvgPreview = useSettingsStore(state => state.toggleSvgPreview)
   
   // History state
   const canUndo = useHistoryStore(state => state.canUndo)
@@ -98,6 +100,11 @@ export function MenuBar() {
   
   const handleToggleGrid = () => {
     toggleGrid()
+    closeMenu()
+  }
+  
+  const handleToggleSvgPreview = () => {
+    toggleSvgPreview()
     closeMenu()
   }
   
@@ -185,6 +192,19 @@ export function MenuBar() {
     closeMenu()
   }
   
+  // Reset handler - clears all persisted preferences
+  const handleResetPreferences = () => {
+    const keys = [
+      'serpentine-document',
+      'serpentine-settings',
+      'serpentine-debug-settings',
+      'serpentine-theme',
+      'serpentine-viewport'
+    ]
+    keys.forEach(key => localStorage.removeItem(key))
+    window.location.reload()
+  }
+  
   return (
     <div className={styles.menuBar}>
       <div className={styles.menus}>
@@ -234,6 +254,11 @@ export function MenuBar() {
           <MenuItem label="Toggle Grid" shortcut="G" onClick={handleToggleGrid} />
           <MenuItem label="Toggle Snap" shortcut="S" onClick={handleToggleSnap} />
           <MenuItem label="Cycle Measurements" shortcut="M" onClick={handleCycleMeasurements} />
+          <div style={{ height: 1, background: 'var(--menu-border)', margin: '4px 0' }} />
+          <MenuItem 
+            label={`${showSvgPreview ? '✓ ' : '   '}SVG Preview Window`} 
+            onClick={handleToggleSvgPreview} 
+          />
         </Menu>
         
         <Menu
@@ -306,6 +331,15 @@ export function MenuBar() {
           />
           <div style={{ height: 1, background: 'var(--menu-border)', margin: '4px 0' }} />
           <MenuItem label="Hide All Debug" onClick={handleResetDebug} />
+        </Menu>
+        
+        <Menu
+          label="Settings"
+          isOpen={openMenu === 'settings'}
+          onToggle={() => handleMenuClick('settings')}
+          onClose={closeMenu}
+        >
+          <MenuItem label="Reset All Preferences..." onClick={handleResetPreferences} />
         </Menu>
       </div>
       

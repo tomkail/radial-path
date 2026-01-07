@@ -75,6 +75,7 @@ interface SelectionState {
   dragState: DragState | null
   clickPreview: ClickPreview | null  // Preview circle shown after single-click
   activeGuides: SmartGuide[]  // Smart guides shown during drag
+  mouseWorldPos: Point | null  // Current mouse position in world coordinates
   
   // Actions
   select: (id: string, additive?: boolean) => void
@@ -88,6 +89,7 @@ interface SelectionState {
   clearClickPreview: () => void
   setActiveGuides: (guides: SmartGuide[]) => void
   clearActiveGuides: () => void
+  setMouseWorldPos: (pos: Point | null) => void
 }
 
 // Store timeout ID for clearing preview
@@ -100,6 +102,7 @@ export const useSelectionStore = create<SelectionState>()((set) => ({
   dragState: null,
   clickPreview: null,
   activeGuides: [],
+  mouseWorldPos: null,
   
   select: (id, additive = false) => set((state) => {
     if (additive) {
@@ -153,5 +156,7 @@ export const useSelectionStore = create<SelectionState>()((set) => ({
   
   setActiveGuides: (guides) => set({ activeGuides: guides }),
   
-  clearActiveGuides: () => set({ activeGuides: [] })
+  clearActiveGuides: () => set({ activeGuides: [] }),
+  
+  setMouseWorldPos: (pos) => set({ mouseWorldPos: pos })
 }))

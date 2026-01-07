@@ -90,6 +90,7 @@ export function Canvas() {
   const dragState = useSelectionStore(state => state.dragState)
   const clickPreview = useSelectionStore(state => state.clickPreview)
   const activeGuides = useSelectionStore(state => state.activeGuides)
+  const mouseWorldPos = useSelectionStore(state => state.mouseWorldPos)
   const gridSize = useSettingsStore(state => state.gridSize)
   const showGrid = useSettingsStore(state => state.showGrid)
   const measurementMode = useSettingsStore(state => state.measurementMode)
@@ -190,8 +191,9 @@ export function Canvas() {
       }
       
       // Shapes first (below path)
+      // Returns set of circle IDs with visible UI (for hiding overlapping measurements)
       startMeasure('shapes')
-      renderShapes(ctx, shapes, selectedIds, hoveredId, hoverTarget, theme, zoom, shapeOrder, mirrorAxis)
+      const circlesWithVisibleUI = renderShapes(ctx, shapes, selectedIds, hoveredId, hoverTarget, theme, zoom, shapeOrder, mirrorAxis, measurementMode, mouseWorldPos)
       endMeasure('shapes')
       if (isFirstRender) mark('shapes')
       
@@ -285,7 +287,7 @@ export function Canvas() {
       // Measurements on top of everything
       if (measurementMode !== 'clean') {
         startMeasure('measurements')
-        renderMeasurements(ctx, shapes, shapeOrder, measurementMode, zoom, closedPath, useStartPoint, useEndPoint, mirrorAxis)
+        renderMeasurements(ctx, shapes, shapeOrder, measurementMode, zoom, closedPath, useStartPoint, useEndPoint, mirrorAxis, circlesWithVisibleUI)
         endMeasure('measurements')
       }
       
@@ -355,7 +357,7 @@ export function Canvas() {
     }
     
     console.log(`%c[Canvas] render() completed in ${(performance.now() - renderStart).toFixed(1)}ms`, 'color: #00ff88;')
-  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis, pan, zoom, selectedIds, hoveredId, hoverTarget, dragState, clickPreview, activeGuides, gridSize, showGrid, measurementMode, isolatePath, debugSettings, theme, showPerformanceOverlay])
+  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis, pan, zoom, selectedIds, hoveredId, hoverTarget, dragState, clickPreview, activeGuides, mouseWorldPos, gridSize, showGrid, measurementMode, isolatePath, debugSettings, theme, showPerformanceOverlay])
   
   // Helper to draw performance overlay
   function drawPerformanceOverlay(ctx: CanvasRenderingContext2D, width: number, _height: number) {

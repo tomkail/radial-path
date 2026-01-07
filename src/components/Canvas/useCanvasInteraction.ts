@@ -107,6 +107,7 @@ export function useCanvasInteraction(
   const clearClickPreview = useSelectionStore(state => state.clearClickPreview)
   const setActiveGuides = useSelectionStore(state => state.setActiveGuides)
   const clearActiveGuides = useSelectionStore(state => state.clearActiveGuides)
+  const setMouseWorldPos = useSelectionStore(state => state.setMouseWorldPos)
   
   const snapToGridEnabled = useSettingsStore(state => state.snapToGrid)
   const smartGuidesEnabled = useSettingsStore(state => state.smartGuides)
@@ -1054,8 +1055,9 @@ export function useCanvasInteraction(
     
     setHoverTarget(hit.hoverTarget)
     setHovered(hit.shape?.id ?? null)
+    setMouseWorldPos(worldPos)
     canvas.style.cursor = getCursor(hit.hoverTarget, false)
-  }, [canvasRef, getWorldPos, dragState, shapes, circles, shapeOrder, updateShape, updateShapes, snapToGridEnabled, findTargetAt, getCursor, setHovered, setHoverTarget, setEntryOffset, setExitOffset, setEntryTangentLength, setExitTangentLength, selectAll, setDragState])
+  }, [canvasRef, getWorldPos, dragState, shapes, circles, shapeOrder, updateShape, updateShapes, snapToGridEnabled, findTargetAt, getCursor, setHovered, setHoverTarget, setMouseWorldPos, setEntryOffset, setExitOffset, setEntryTangentLength, setExitTangentLength, selectAll, setDragState])
   
   // Mouse up handler
   const handleMouseUp = useCallback(() => {

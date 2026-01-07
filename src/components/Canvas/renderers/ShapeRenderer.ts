@@ -30,16 +30,20 @@ export {
   areIndexDotsInteractable,
   isDirectionRingInteractable,
   isScalingInteractable,
+  isMouseInCircleUIZone,
   type TangentHandleInfo,
   type TangentHandleType
 } from './hitTesting'
 
-import { getDotPosition, computeTangentHandleInfo, getIndexDotOpacity, getDirectionRingOpacity } from './hitTesting'
+import { getDotPosition, computeTangentHandleInfo, getIndexDotOpacity, getDirectionRingOpacity, isMouseInCircleUIZone } from './hitTesting'
+import type { MeasurementMode } from '../../../types'
 
 /**
  * Render all shapes on the canvas
  * Selected shapes are drawn last so they appear on top and can be dragged
  * even when overlapping with other shapes
+ * 
+ * @returns Set of circle IDs that have their UI visible (for hiding overlapping measurements)
  */
 export function renderShapes(
   ctx: CanvasRenderingContext2D,
@@ -50,8 +54,12 @@ export function renderShapes(
   theme: CanvasTheme,
   zoom: number = 1,
   shapeOrder: string[] = [],
-  mirrorAxis: MirrorAxis = 'vertical'
-) {
+  mirrorAxis: MirrorAxis = 'vertical',
+  measurementMode: MeasurementMode = 'clean',
+  mouseWorldPos: Point | null = null
+): Set<string> {
+  // Track which circles have their UI visible (for measurement hiding)
+  const circlesWithVisibleUI = new Set<string>()
   // Use pooled Set for O(1) lookups (avoids creating new Set each frame)
   const selectedSet = buildIdSet(selectedIds)
   
@@ -65,6 +73,9 @@ export function renderShapes(
   }
   const canDelete = circleCount > 2
   
+  // Determine if we're in detailed measurement mode (where UI hiding applies)
+  const isDetailedMeasureMode = measurementMode === 'detailed'
+  
   // Two-pass rendering without creating new arrays:
   // Pass 1: Draw non-selected shapes (underneath)
   for (let i = 0; i < shapes.length; i++) {
@@ -74,6 +85,16 @@ export function renderShapes(
     if (shape.type === 'circle') {
       const shapeIndex = shapeOrder.indexOf(shape.id)
       const isInOrder = shapeIndex >= 0
+      
+      // In detailed measure mode, check if mouse is hovering near this circle's UI zone
+      const mouseInUIZone = isDetailedMeasureMode && isMouseInCircleUIZone(shape, mouseWorldPos)
+      const hideUIForMeasure = isDetailedMeasureMode && !mouseInUIZone
+      
+      // Track circles with visible UI for measurement hiding
+      if (isDetailedMeasureMode && mouseInUIZone) {
+        circlesWithVisibleUI.add(shape.id)
+      }
+      
       renderCircle(ctx, shape, {
         theme,
         isSelected: false,
@@ -83,7 +104,8 @@ export function renderShapes(
         shapeIndex: isInOrder ? shapeIndex : undefined,
         totalShapes: isInOrder ? totalShapes : undefined,
         canDelete,
-        isMirrored: shape.mirrored ?? false
+        isMirrored: shape.mirrored ?? false,
+        hideUIForMeasure
       })
     }
   }
@@ -96,6 +118,16 @@ export function renderShapes(
     if (shape.type === 'circle') {
       const shapeIndex = shapeOrder.indexOf(shape.id)
       const isInOrder = shapeIndex >= 0
+      
+      // In detailed measure mode, check if mouse is hovering near this circle's UI zone
+      const mouseInUIZone = isDetailedMeasureMode && isMouseInCircleUIZone(shape, mouseWorldPos)
+      const hideUIForMeasure = isDetailedMeasureMode && !mouseInUIZone
+      
+      // Track circles with visible UI for measurement hiding
+      if (isDetailedMeasureMode && mouseInUIZone) {
+        circlesWithVisibleUI.add(shape.id)
+      }
+      
       renderCircle(ctx, shape, {
         theme,
         isSelected: true,
@@ -105,7 +137,8 @@ export function renderShapes(
         shapeIndex: isInOrder ? shapeIndex : undefined,
         totalShapes: isInOrder ? totalShapes : undefined,
         canDelete,
-        isMirrored: shape.mirrored ?? false
+        isMirrored: shape.mirrored ?? false,
+        hideUIForMeasure
       })
     }
   }
@@ -125,6 +158,8 @@ export function renderShapes(
     
     renderMirroredCircle(ctx, mirrorCircle, originalId, theme, zoom, isOriginalSelected, isOriginalHovered, hoverTarget)
   }
+  
+  return circlesWithVisibleUI
 }
 
 /**
@@ -222,6 +257,7 @@ interface CircleRenderOptions {
   totalShapes?: number // Total number of shapes
   canDelete?: boolean  // Whether deletion is allowed (false if only 2 circles)
   isMirrored?: boolean // Whether this circle has mirroring enabled
+  hideUIForMeasure?: boolean // Whether to hide index dots and direction ring for measurement mode
 }
 
 function renderCircle(
@@ -230,7 +266,7 @@ function renderCircle(
   options: CircleRenderOptions
 ) {
   const { center, radius } = circle
-  const { theme, isSelected, isHovered, hoverTarget, zoom, shapeIndex, totalShapes, canDelete = true, isMirrored = false } = options
+  const { theme, isSelected, isHovered, hoverTarget, zoom, shapeIndex, totalShapes, canDelete = true, isMirrored = false, hideUIForMeasure = false } = options
   
   const uiScale = 1 / zoom
   
@@ -258,10 +294,14 @@ function renderCircle(
   ctx.stroke()
   
   // Draw direction ring (accent color only when selected or hovered)
-  drawDirectionRing(ctx, circle, theme, zoom, isRingHovered, false, isSelected)
+  // Hidden in measure mode unless mouse is hovering near this circle
+  if (!hideUIForMeasure) {
+    drawDirectionRing(ctx, circle, theme, zoom, isRingHovered, false, isSelected)
+  }
   
   // Draw index dot grid (fades out when zoomed too far out)
-  if (shapeIndex !== undefined && totalShapes !== undefined && totalShapes > 0) {
+  // Hidden in measure mode unless mouse is hovering near this circle
+  if (!hideUIForMeasure && shapeIndex !== undefined && totalShapes !== undefined && totalShapes > 0) {
     const hoveredDotIndex = hoverTarget?.type === 'index-dot' && hoverTarget.shapeId === circle.id 
       ? hoverTarget.dotIndex 
       : null

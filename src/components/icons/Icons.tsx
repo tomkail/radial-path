@@ -80,8 +80,8 @@ export function SmartGuidesIcon({ size = 16, className, color = 'currentColor' }
 // ============================================================================
 
 /**
- * Loop Path Icon - Circular arrow showing closed loop
- * Indicates the path connects end back to start
+ * Loop Path Icon - Continuous closed shape
+ * Indicates the path connects end back to start (closed loop)
  */
 export function LoopPathIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
   return (
@@ -93,19 +93,11 @@ export function LoopPathIcon({ size = 16, className, color = 'currentColor' }: I
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Circular arc (most of a circle) */}
+      {/* Closed organic shape - clearly shows a continuous connected path */}
       <path 
-        d="M8 3C5.24 3 3 5.24 3 8C3 10.76 5.24 13 8 13C10.76 13 13 10.76 13 8C13 6.5 12.3 5.15 11.2 4.2" 
+        d="M8 2.5 L12.5 5.5 L11.5 11 L4.5 11 L3.5 5.5 Z" 
         stroke={color} 
         strokeWidth="1.75" 
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Arrow head at the end */}
-      <path 
-        d="M11 2L11.2 4.2L13.2 4.5" 
-        stroke={color} 
-        strokeWidth="1.5" 
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -115,7 +107,7 @@ export function LoopPathIcon({ size = 16, className, color = 'currentColor' }: I
 }
 
 /**
- * Open Path Icon - Line with distinct start and end dots
+ * Open Path Icon - Curved line with distinct endpoints
  * Indicates the path has distinct start and end points (not looped)
  */
 export function OpenPathIcon({ size = 16, className, color = 'currentColor' }: IconProps) {
@@ -128,17 +120,18 @@ export function OpenPathIcon({ size = 16, className, color = 'currentColor' }: I
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Connecting path line */}
+      {/* Curved path - S-curve showing an open bezier path */}
       <path 
-        d="M4 8 L12 8" 
+        d="M3 11 C6 11, 5 5, 8 5 C11 5, 10 11, 13 11" 
         stroke={color} 
         strokeWidth="1.75" 
         strokeLinecap="round"
+        fill="none"
       />
-      {/* Start dot */}
-      <circle cx="4" cy="8" r="2" fill={color} />
-      {/* End dot */}
-      <circle cx="12" cy="8" r="2" fill={color} />
+      {/* Start endpoint marker */}
+      <circle cx="3" cy="11" r="1.5" fill={color} />
+      {/* End endpoint marker */}
+      <circle cx="13" cy="11" r="1.5" fill={color} />
     </svg>
   )
 }

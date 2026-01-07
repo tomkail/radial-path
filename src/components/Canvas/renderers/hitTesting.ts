@@ -173,6 +173,34 @@ export function isDirectionRingInteractable(radius: number, zoom: number): boole
   return shouldShowDirectionRing(radius, zoom)
 }
 
+/**
+ * Check if mouse is in the "hover zone" of a circle where UI controls live.
+ * This zone covers the area where index dots and direction ring are displayed.
+ * Used in measure mode to determine when to show UI elements.
+ * 
+ * @param circle The circle to check
+ * @param mousePos Current mouse position in world coordinates
+ * @returns true if mouse is near enough to show UI
+ */
+export function isMouseInCircleUIZone(
+  circle: CircleShape,
+  mousePos: Point | null
+): boolean {
+  if (!mousePos) return false
+  
+  const { center, radius } = circle
+  const dx = mousePos.x - center.x
+  const dy = mousePos.y - center.y
+  const dist = Math.sqrt(dx * dx + dy * dy)
+  
+  // The UI zone includes:
+  // - The direction ring area (70-92% of radius)
+  // - The index dot grid area (center of circle)
+  // We use a generous threshold that covers the entire direction ring and inner area
+  // Use DIRECTION_RING_OUTER (92%) as the threshold
+  return dist <= radius * DIRECTION_RING_OUTER
+}
+
 // ============================================================================
 // SHAPE ZONE HIT TESTING
 // ============================================================================

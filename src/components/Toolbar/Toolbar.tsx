@@ -360,21 +360,6 @@ export function Toolbar() {
       
       <div className={styles.separator} />
       
-      {/* === OUTPUT === */}
-      <div className={styles.group}>
-        <Tooltip text="SVG preview window">
-          <button
-            className={`${styles.iconToggle} ${showSvgPreview ? styles.active : ''}`}
-            onClick={toggleSvgPreview}
-            aria-label={`SVG preview: ${showSvgPreview ? 'on' : 'off'}`}
-          >
-            <SvgPreviewIcon size={18} />
-          </button>
-        </Tooltip>
-      </div>
-      
-      <div className={styles.separator} />
-      
       {/* === SETTINGS === */}
       <div className={styles.group}>
         <DropdownMenu
@@ -385,6 +370,12 @@ export function Toolbar() {
           tooltip="Settings"
           align="right"
         >
+          <MenuItem 
+            label={`${showSvgPreview ? '✓ ' : '   '}SVG Preview Window`} 
+            onClick={handleToggleSetting(toggleSvgPreview)} 
+          />
+          
+          <MenuDivider />
           <MenuLabel>Theme</MenuLabel>
           {themeList.map(theme => (
             <MenuItem 
@@ -442,6 +433,22 @@ export function Toolbar() {
             label="Clear Profiling Data" 
             onClick={() => { clearProfilingDataAction(); closeMenu() }}
             disabled={!profilingEnabled}
+          />
+          
+          <MenuDivider />
+          <MenuItem 
+            label="Reset All Preferences..." 
+            onClick={() => {
+              const keys = [
+                'serpentine-document',
+                'serpentine-settings',
+                'serpentine-debug-settings',
+                'serpentine-theme',
+                'serpentine-viewport'
+              ]
+              keys.forEach(key => localStorage.removeItem(key))
+              window.location.reload()
+            }}
           />
         </DropdownMenu>
       </div>

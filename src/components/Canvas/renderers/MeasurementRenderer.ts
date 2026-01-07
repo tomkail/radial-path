@@ -27,6 +27,8 @@ export function invalidateMeasurementStyleCache() {
 
 /**
  * Render measurements on the canvas
+ * 
+ * @param circlesWithVisibleUI - Set of circle IDs that have their UI visible (skip overlapping measurements)
  */
 export function renderMeasurements(
   ctx: CanvasRenderingContext2D,
@@ -37,7 +39,8 @@ export function renderMeasurements(
   closed: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical'
+  mirrorAxis: MirrorAxis = 'vertical',
+  circlesWithVisibleUI: Set<string> = new Set()
 ) {
   if (mode === 'clean') return
   
@@ -54,6 +57,14 @@ export function renderMeasurements(
   
   const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
   
+  // Build a map of circle ID to center for quickly finding which circle an arc belongs to
+  const circleByCenter = new Map<string, string>()
+  for (const circle of circles) {
+    // Use a string key from center coordinates (with some precision)
+    const key = `${Math.round(circle.center.x * 100)},${Math.round(circle.center.y * 100)}`
+    circleByCenter.set(key, circle.id)
+  }
+  
   // Render path measurements
   if (circles.length >= 2) {
     const pathData = computeTangentHull(circles, order, 0, closed, useStartPoint, useEndPoint, mirrorAxis)
@@ -67,8 +78,8 @@ export function renderMeasurements(
       
       renderSegmentLengths(ctx, lines, textColor, uiScale)
       renderBezierLengths(ctx, beziers, textColor, uiScale)
-      renderArcLengths(ctx, arcs, textColor, uiScale)
-      renderEllipseArcLengths(ctx, ellipseArcs, textColor, uiScale)
+      renderArcLengths(ctx, arcs, textColor, uiScale, circlesWithVisibleUI, circleByCenter)
+      renderEllipseArcLengths(ctx, ellipseArcs, textColor, uiScale, circlesWithVisibleUI, circleByCenter)
     }
   }
 }
@@ -274,8 +285,8 @@ function renderBezierLengths(
     
     // Find t values where the curve is halfTextWidth away from the label (for text gap)
     // We approximate by finding t values based on arc length proportion
-    const gapStartT = Math.max(0, 0.5 - (halfTextWidth / bezier.length) * 0.5)
-    const gapEndT = Math.min(1, 0.5 + (halfTextWidth / bezier.length) * 0.5)
+    const gapStartT = Math.max(0, 0.5 - halfTextWidth / bezier.length)
+    const gapEndT = Math.min(1, 0.5 + halfTextWidth / bezier.length)
     
     ctx.lineWidth = lineWidth
     
@@ -346,7 +357,9 @@ function renderArcLengths(
   ctx: CanvasRenderingContext2D,
   arcs: ArcSegment[],
   color: string,
-  uiScale: number
+  uiScale: number,
+  circlesWithVisibleUI: Set<string> = new Set(),
+  circleByCenter: Map<string, string> = new Map()
 ) {
   ctx.fillStyle = color
   ctx.strokeStyle = color
@@ -378,7 +391,8 @@ function renderArcLengths(
     // Tangent is perpendicular to radius at the midpoint
     let tangentAngle = arc.counterclockwise ? midAngle - Math.PI / 2 : midAngle + Math.PI / 2
     
-    // Normalize angle so text is never upside down
+    // Normalize to [-π, π] range first, then flip if upside down
+    tangentAngle = Math.atan2(Math.sin(tangentAngle), Math.cos(tangentAngle))
     if (tangentAngle > Math.PI / 2) {
       tangentAngle -= Math.PI
     } else if (tangentAngle < -Math.PI / 2) {
@@ -462,85 +476,120 @@ function renderArcLengths(
     ctx.fillText(lengthText, 0, 0)
     ctx.restore()
     
-    // Draw angle indicator with lines extending from center to circle edge
-    const angleArcRadius = Math.min(arc.radius * 0.4, 40 * uiScale) // Smaller arc for angle label
-    const angleDegrees = (arcSpan * 180 / Math.PI)
-    const angleText = angleDegrees.toFixed(1) + '°'
-    const radiusText = 'r: ' + arc.radius.toFixed(0)
+    // Check if this arc's circle has visible UI (skip angle/radius rendering if so)
+    const centerKey = `${Math.round(arc.center.x * 100)},${Math.round(arc.center.y * 100)}`
+    const circleId = circleByCenter.get(centerKey)
+    const hideAngleAndRadius = circleId && circlesWithVisibleUI.has(circleId)
     
-    // Draw line from center to start of arc (full radius)
-    ctx.beginPath()
-    ctx.moveTo(arc.center.x, arc.center.y)
-    ctx.lineTo(
-      arc.center.x + arc.radius * Math.cos(arc.startAngle),
-      arc.center.y + arc.radius * Math.sin(arc.startAngle)
-    )
-    ctx.stroke()
-    
-    // Draw line from center to end of arc (full radius)
-    ctx.beginPath()
-    ctx.moveTo(arc.center.x, arc.center.y)
-    ctx.lineTo(
-      arc.center.x + arc.radius * Math.cos(arc.endAngle),
-      arc.center.y + arc.radius * Math.sin(arc.endAngle)
-    )
-    ctx.stroke()
-    
-    // Draw the angle arc (smaller radius for the angle indicator)
-    ctx.beginPath()
-    ctx.arc(arc.center.x, arc.center.y, angleArcRadius, arc.startAngle, arc.endAngle, arc.counterclockwise)
-    ctx.stroke()
-    
-    // Position angle text on the angle arc
-    const angleLabelRadius = angleArcRadius + offset * 0.5 + 2 * uiScale
-    const angleLabelX = arc.center.x + angleLabelRadius * Math.cos(midAngle)
-    const angleLabelY = arc.center.y + angleLabelRadius * Math.sin(midAngle)
-    
-    // Calculate text rotation to follow the arc
-    let angleTextRotation = midAngle + Math.PI / 2 // Perpendicular to radius
-    if (arc.counterclockwise) {
-      angleTextRotation = midAngle - Math.PI / 2
+    if (!hideAngleAndRadius) {
+      // Draw angle indicator with lines extending from center to circle edge
+      const angleArcRadius = Math.min(arc.radius * 0.4, 40 * uiScale) // Smaller arc for angle label
+      const angleDegrees = (arcSpan * 180 / Math.PI)
+      const angleText = angleDegrees.toFixed(1) + '°'
+      const radiusText = arc.radius.toFixed(0)
+      
+      // Measure text widths for gaps
+      const angleTextMetrics = ctx.measureText(angleText)
+      const angleTextWidth = angleTextMetrics.width
+      const radiusTextMetrics = ctx.measureText(radiusText)
+      const radiusTextWidth = radiusTextMetrics.width
+      const textPadding = 4 * uiScale
+      
+      // === RADIUS LABEL (inline with start angle line) ===
+      const radiusMidX = arc.center.x + (arc.radius / 2) * Math.cos(arc.startAngle)
+      const radiusMidY = arc.center.y + (arc.radius / 2) * Math.sin(arc.startAngle)
+      
+      // Calculate text rotation to align with the radius line
+      let radiusTextRotation = Math.atan2(Math.sin(arc.startAngle), Math.cos(arc.startAngle))
+      if (radiusTextRotation > Math.PI / 2) {
+        radiusTextRotation -= Math.PI
+      } else if (radiusTextRotation < -Math.PI / 2) {
+        radiusTextRotation += Math.PI
+      }
+      
+      const halfRadiusTextWidth = radiusTextWidth / 2 + textPadding
+      const halfRadius = arc.radius / 2
+      
+      // Draw radius line with gap for text (in rotated coordinates)
+      ctx.save()
+      ctx.translate(radiusMidX, radiusMidY)
+      ctx.rotate(radiusTextRotation)
+      
+      // Line from center to text gap
+      ctx.beginPath()
+      ctx.moveTo(-halfRadius, 0)
+      ctx.lineTo(-halfRadiusTextWidth, 0)
+      ctx.stroke()
+      
+      // Line from text gap to edge
+      ctx.beginPath()
+      ctx.moveTo(halfRadiusTextWidth, 0)
+      ctx.lineTo(halfRadius, 0)
+      ctx.stroke()
+      
+      // Draw radius text
+      ctx.fillText(radiusText, 0, 0)
+      ctx.restore()
+      
+      // Draw line from center to end of arc (full radius, no label)
+      ctx.beginPath()
+      ctx.moveTo(arc.center.x, arc.center.y)
+      ctx.lineTo(
+        arc.center.x + arc.radius * Math.cos(arc.endAngle),
+        arc.center.y + arc.radius * Math.sin(arc.endAngle)
+      )
+      ctx.stroke()
+      
+      // === ANGLE LABEL (inline with angle arc) ===
+      // Calculate the angular gap needed for the text on the angle arc
+      const halfAngleTextWidth = angleTextWidth / 2 + textPadding
+      const angleTextGap = halfAngleTextWidth / angleArcRadius
+      
+      // Calculate gap angles around midpoint
+      const angleGapStart = midAngle - angleTextGap
+      const angleGapEnd = midAngle + angleTextGap
+      
+      // Draw the angle arc with gap for text
+      ctx.beginPath()
+      if (arc.counterclockwise) {
+        ctx.arc(arc.center.x, arc.center.y, angleArcRadius, arc.startAngle, angleGapEnd, true)
+      } else {
+        ctx.arc(arc.center.x, arc.center.y, angleArcRadius, arc.startAngle, angleGapStart, false)
+      }
+      ctx.stroke()
+      
+      ctx.beginPath()
+      if (arc.counterclockwise) {
+        ctx.arc(arc.center.x, arc.center.y, angleArcRadius, angleGapStart, arc.endAngle, true)
+      } else {
+        ctx.arc(arc.center.x, arc.center.y, angleArcRadius, angleGapEnd, arc.endAngle, false)
+      }
+      ctx.stroke()
+      
+      // Position angle text on the angle arc
+      const angleLabelX = arc.center.x + angleArcRadius * Math.cos(midAngle)
+      const angleLabelY = arc.center.y + angleArcRadius * Math.sin(midAngle)
+      
+      // Calculate text rotation to follow the arc (tangent direction)
+      let angleTextRotation = midAngle + Math.PI / 2
+      if (arc.counterclockwise) {
+        angleTextRotation = midAngle - Math.PI / 2
+      }
+      
+      // Normalize to [-π, π] range first, then flip if upside down
+      angleTextRotation = Math.atan2(Math.sin(angleTextRotation), Math.cos(angleTextRotation))
+      if (angleTextRotation > Math.PI / 2) {
+        angleTextRotation -= Math.PI
+      } else if (angleTextRotation < -Math.PI / 2) {
+        angleTextRotation += Math.PI
+      }
+      
+      ctx.save()
+      ctx.translate(angleLabelX, angleLabelY)
+      ctx.rotate(angleTextRotation)
+      ctx.fillText(angleText, 0, 0)
+      ctx.restore()
     }
-    
-    // Normalize so text is never upside down
-    if (angleTextRotation > Math.PI / 2) {
-      angleTextRotation -= Math.PI
-    } else if (angleTextRotation < -Math.PI / 2) {
-      angleTextRotation += Math.PI
-    }
-    
-    ctx.save()
-    ctx.translate(angleLabelX, angleLabelY)
-    ctx.rotate(angleTextRotation)
-    ctx.fillText(angleText, 0, 0)
-    ctx.restore()
-    
-    // Draw radius label on the start angle line (at midpoint of the line)
-    const radiusMidX = arc.center.x + (arc.radius / 2) * Math.cos(arc.startAngle)
-    const radiusMidY = arc.center.y + (arc.radius / 2) * Math.sin(arc.startAngle)
-    
-    // Calculate text rotation to align with the radius line
-    let radiusTextRotation = arc.startAngle
-    // Normalize so text is never upside down
-    if (radiusTextRotation > Math.PI / 2) {
-      radiusTextRotation -= Math.PI
-    } else if (radiusTextRotation < -Math.PI / 2) {
-      radiusTextRotation += Math.PI
-    }
-    
-    // Offset the text perpendicular to the line, away from the angle segment
-    // For counterclockwise arcs, the angle segment is on the -PI/2 side, so offset to +PI/2
-    // For clockwise arcs, the angle segment is on the +PI/2 side, so offset to -PI/2
-    const radiusLabelOffset = offset * 0.6
-    const perpOffset = arc.counterclockwise ? arc.startAngle + Math.PI / 2 : arc.startAngle - Math.PI / 2
-    const radiusLabelX = radiusMidX + Math.cos(perpOffset) * radiusLabelOffset
-    const radiusLabelY = radiusMidY + Math.sin(perpOffset) * radiusLabelOffset
-    
-    ctx.save()
-    ctx.translate(radiusLabelX, radiusLabelY)
-    ctx.rotate(radiusTextRotation)
-    ctx.fillText(radiusText, 0, 0)
-    ctx.restore()
   }
 }
 
@@ -599,7 +648,9 @@ function renderEllipseArcLengths(
   ctx: CanvasRenderingContext2D,
   ellipseArcs: EllipseArcSegment[],
   color: string,
-  uiScale: number
+  uiScale: number,
+  circlesWithVisibleUI: Set<string> = new Set(),
+  circleByCenter: Map<string, string> = new Map()
 ) {
   ctx.fillStyle = color
   ctx.strokeStyle = color
@@ -729,88 +780,123 @@ function renderEllipseArcLengths(
     ctx.fillText(lengthText, 0, 0)
     ctx.restore()
     
-    // Draw angle indicator with lines extending from center to ellipse edge
-    const ellipseAvgRadius = (arc.radiusX + arc.radiusY) / 2
-    const angleArcRadius = Math.min(ellipseAvgRadius * 0.4, 40 * uiScale)
-    const arcSpan = Math.abs(endAngle - startAngle)
-    const angleDegrees = (arcSpan * 180 / Math.PI)
-    const angleText = angleDegrees.toFixed(1) + '°'
-    const radiusText = 'r: ' + arc.radiusX.toFixed(0) + '×' + arc.radiusY.toFixed(0)
+    // Check if this arc's circle has visible UI (skip angle/radius rendering if so)
+    const centerKey = `${Math.round(arc.center.x * 100)},${Math.round(arc.center.y * 100)}`
+    const circleId = circleByCenter.get(centerKey)
+    const hideAngleAndRadius = circleId && circlesWithVisibleUI.has(circleId)
     
-    // Get full-radius points for the angle lines
-    const startFullPt = ellipsePoint(arc.center, arc.radiusX, arc.radiusY, arc.rotation, arc.startAngle)
-    const endFullPt = ellipsePoint(arc.center, arc.radiusX, arc.radiusY, arc.rotation, arc.endAngle)
-    
-    // Draw line from center to start of arc (full radius)
-    ctx.beginPath()
-    ctx.moveTo(arc.center.x, arc.center.y)
-    ctx.lineTo(startFullPt.x, startFullPt.y)
-    ctx.stroke()
-    
-    // Draw line from center to end of arc (full radius)
-    ctx.beginPath()
-    ctx.moveTo(arc.center.x, arc.center.y)
-    ctx.lineTo(endFullPt.x, endFullPt.y)
-    ctx.stroke()
-    
-    // Draw the angle arc (smaller radius for the angle indicator)
-    const indicatorScale = angleArcRadius / ellipseAvgRadius
-    ctx.beginPath()
-    ctx.ellipse(
-      arc.center.x, 
-      arc.center.y, 
-      arc.radiusX * indicatorScale, 
-      arc.radiusY * indicatorScale, 
-      arc.rotation, 
-      arc.startAngle, 
-      arc.endAngle, 
-      arc.counterclockwise
-    )
-    ctx.stroke()
-    
-    // Position angle text on the angle arc
-    const angleLabelPt = ellipsePoint(
-      arc.center, 
-      arc.radiusX * indicatorScale + offset * 0.5 + 2 * uiScale, 
-      arc.radiusY * indicatorScale + offset * 0.5 + 2 * uiScale, 
-      arc.rotation, 
-      midAngle
-    )
-    
-    // Calculate text rotation to follow the arc
-    let angleTextRotation = tangentAngle
-    
-    ctx.save()
-    ctx.translate(angleLabelPt.x, angleLabelPt.y)
-    ctx.rotate(angleTextRotation)
-    ctx.fillText(angleText, 0, 0)
-    ctx.restore()
-    
-    // Draw radius label on the start angle line (at midpoint)
-    const radiusMidPt = ellipsePoint(arc.center, arc.radiusX / 2, arc.radiusY / 2, arc.rotation, arc.startAngle)
-    
-    // Calculate text rotation to align with the radius line
-    const radiusLineAngle = Math.atan2(startFullPt.y - arc.center.y, startFullPt.x - arc.center.x)
-    let radiusTextRotation = radiusLineAngle
-    // Normalize so text is never upside down
-    if (radiusTextRotation > Math.PI / 2) {
-      radiusTextRotation -= Math.PI
-    } else if (radiusTextRotation < -Math.PI / 2) {
-      radiusTextRotation += Math.PI
+    if (!hideAngleAndRadius) {
+      // Draw angle indicator with lines extending from center to ellipse edge
+      const ellipseAvgRadius = (arc.radiusX + arc.radiusY) / 2
+      const angleArcRadius = Math.min(ellipseAvgRadius * 0.4, 40 * uiScale)
+      const arcSpan = Math.abs(endAngle - startAngle)
+      const angleDegrees = (arcSpan * 180 / Math.PI)
+      const angleText = angleDegrees.toFixed(1) + '°'
+      const radiusText = arc.radiusX.toFixed(0) + '×' + arc.radiusY.toFixed(0)
+      
+      // Measure text widths for gaps
+      const angleTextMetrics = ctx.measureText(angleText)
+      const angleTextWidth = angleTextMetrics.width
+      const radiusTextMetrics = ctx.measureText(radiusText)
+      const radiusTextWidth = radiusTextMetrics.width
+      const textPadding = 4 * uiScale
+      
+      // Get full-radius points for the angle lines
+      const startFullPt = ellipsePoint(arc.center, arc.radiusX, arc.radiusY, arc.rotation, arc.startAngle)
+      const endFullPt = ellipsePoint(arc.center, arc.radiusX, arc.radiusY, arc.rotation, arc.endAngle)
+      
+      // === RADIUS LABEL (inline with start angle line) ===
+      const radiusMidPt = ellipsePoint(arc.center, arc.radiusX / 2, arc.radiusY / 2, arc.rotation, arc.startAngle)
+      
+      // Calculate text rotation to align with the radius line
+      const radiusLineAngle = Math.atan2(startFullPt.y - arc.center.y, startFullPt.x - arc.center.x)
+      let radiusTextRotation = radiusLineAngle
+      if (radiusTextRotation > Math.PI / 2) {
+        radiusTextRotation -= Math.PI
+      } else if (radiusTextRotation < -Math.PI / 2) {
+        radiusTextRotation += Math.PI
+      }
+      
+      // Calculate the line length from center to edge
+      const radiusLineLength = Math.sqrt(
+        Math.pow(startFullPt.x - arc.center.x, 2) + 
+        Math.pow(startFullPt.y - arc.center.y, 2)
+      )
+      const halfRadiusLine = radiusLineLength / 2
+      const halfRadiusTextWidth = radiusTextWidth / 2 + textPadding
+      
+      // Draw radius line with gap for text (in rotated coordinates)
+      ctx.save()
+      ctx.translate(radiusMidPt.x, radiusMidPt.y)
+      ctx.rotate(radiusTextRotation)
+      
+      // Line from center to text gap
+      ctx.beginPath()
+      ctx.moveTo(-halfRadiusLine, 0)
+      ctx.lineTo(-halfRadiusTextWidth, 0)
+      ctx.stroke()
+      
+      // Line from text gap to edge
+      ctx.beginPath()
+      ctx.moveTo(halfRadiusTextWidth, 0)
+      ctx.lineTo(halfRadiusLine, 0)
+      ctx.stroke()
+      
+      // Draw radius text
+      ctx.fillText(radiusText, 0, 0)
+      ctx.restore()
+      
+      // Draw line from center to end of arc (full radius, no label)
+      ctx.beginPath()
+      ctx.moveTo(arc.center.x, arc.center.y)
+      ctx.lineTo(endFullPt.x, endFullPt.y)
+      ctx.stroke()
+      
+      // === ANGLE LABEL (inline with angle arc) ===
+      const indicatorScale = angleArcRadius / ellipseAvgRadius
+      const indicatorRadiusX = arc.radiusX * indicatorScale
+      const indicatorRadiusY = arc.radiusY * indicatorScale
+      
+      // Calculate the angular gap needed for the text on the angle arc
+      const halfAngleTextWidth = angleTextWidth / 2 + textPadding
+      const angleTextGap = halfAngleTextWidth / angleArcRadius
+      
+      // Calculate gap angles around midpoint
+      const angleGapStart = midAngle - angleTextGap
+      const angleGapEnd = midAngle + angleTextGap
+      
+      // Draw the angle arc with gap for text (as two separate ellipse arcs)
+      ctx.beginPath()
+      if (arc.counterclockwise) {
+        ctx.ellipse(arc.center.x, arc.center.y, indicatorRadiusX, indicatorRadiusY, 
+          arc.rotation, arc.startAngle, angleGapEnd, true)
+      } else {
+        ctx.ellipse(arc.center.x, arc.center.y, indicatorRadiusX, indicatorRadiusY, 
+          arc.rotation, arc.startAngle, angleGapStart, false)
+      }
+      ctx.stroke()
+      
+      ctx.beginPath()
+      if (arc.counterclockwise) {
+        ctx.ellipse(arc.center.x, arc.center.y, indicatorRadiusX, indicatorRadiusY, 
+          arc.rotation, angleGapStart, arc.endAngle, true)
+      } else {
+        ctx.ellipse(arc.center.x, arc.center.y, indicatorRadiusX, indicatorRadiusY, 
+          arc.rotation, angleGapEnd, arc.endAngle, false)
+      }
+      ctx.stroke()
+      
+      // Position angle text on the angle arc
+      const angleLabelPt = ellipsePoint(arc.center, indicatorRadiusX, indicatorRadiusY, arc.rotation, midAngle)
+      
+      // Calculate text rotation to follow the arc (use tangent at midpoint)
+      let angleTextRotation = tangentAngle
+      
+      ctx.save()
+      ctx.translate(angleLabelPt.x, angleLabelPt.y)
+      ctx.rotate(angleTextRotation)
+      ctx.fillText(angleText, 0, 0)
+      ctx.restore()
     }
-    
-    // Offset the text perpendicular to the line, away from the angle segment
-    // For counterclockwise arcs, the angle segment is on the -PI/2 side, so offset to +PI/2
-    // For clockwise arcs, the angle segment is on the +PI/2 side, so offset to -PI/2
-    const radiusLabelOffset = offset * 0.6
-    const perpOffset = arc.counterclockwise ? radiusLineAngle + Math.PI / 2 : radiusLineAngle - Math.PI / 2
-    const radiusLabelX = radiusMidPt.x + Math.cos(perpOffset) * radiusLabelOffset
-    const radiusLabelY = radiusMidPt.y + Math.sin(perpOffset) * radiusLabelOffset
-    
-    ctx.save()
-    ctx.translate(radiusLabelX, radiusLabelY)
-    ctx.rotate(radiusTextRotation)
-    ctx.fillText(radiusText, 0, 0)
-    ctx.restore()
   }
 }
