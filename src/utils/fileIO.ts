@@ -6,6 +6,7 @@ import { useNotificationStore, reportError } from '../stores/notificationStore'
 import { fitToView } from './viewportActions'
 import { computeTangentHull } from '../geometry/path'
 import { pointOnCircle } from '../geometry/math'
+import { MIN_CIRCLES } from '../constants'
 import type { Preset } from './presets'
 
 /**
@@ -483,8 +484,8 @@ export function exportSvg(options: SvgExportOptions = {}): void {
     
     const circles = docState.shapes.filter((s): s is CircleShape => s.type === 'circle')
     
-    if (circles.length < 2) {
-      useNotificationStore.getState().warning('Cannot export', 'Need at least 2 circles to export a path')
+    if (circles.length < MIN_CIRCLES) {
+      useNotificationStore.getState().warning('Cannot export', `Need at least ${MIN_CIRCLES} circle to export a path`)
       return
     }
     
@@ -495,7 +496,7 @@ export function exportSvg(options: SvgExportOptions = {}): void {
       docState.closedPath,
       docState.useStartPoint,
       docState.useEndPoint,
-      docState.mirrorAxis
+      docState.mirrorConfig
     )
     
     if (pathData.segments.length === 0) {

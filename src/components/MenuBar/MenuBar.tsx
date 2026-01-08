@@ -32,12 +32,14 @@ export function MenuBar() {
   const showPathOrder = useDebugStore(state => state.showPathOrder)
   const showCircleCenters = useDebugStore(state => state.showCircleCenters)
   const showArcDirection = useDebugStore(state => state.showArcDirection)
+  const showMirrorPlaneNumbers = useDebugStore(state => state.showMirrorPlaneNumbers)
   const toggleTangentPoints = useDebugStore(state => state.toggleTangentPoints)
   const toggleTangentLabels = useDebugStore(state => state.toggleTangentLabels)
   const toggleArcAngles = useDebugStore(state => state.toggleArcAngles)
   const togglePathOrder = useDebugStore(state => state.togglePathOrder)
   const toggleCircleCenters = useDebugStore(state => state.toggleCircleCenters)
   const toggleArcDirection = useDebugStore(state => state.toggleArcDirection)
+  const toggleMirrorPlaneNumbers = useDebugStore(state => state.toggleMirrorPlaneNumbers)
   const resetDebug = useDebugStore(state => state.resetDebug)
   
   // Profiling state
@@ -146,6 +148,11 @@ export function MenuBar() {
   
   const handleToggleArcDirection = () => {
     toggleArcDirection()
+    closeMenu()
+  }
+  
+  const handleToggleMirrorPlaneNumbers = () => {
+    toggleMirrorPlaneNumbers()
     closeMenu()
   }
   
@@ -305,6 +312,10 @@ export function MenuBar() {
           <MenuItem 
             label={`${showArcDirection ? '✓ ' : '   '}Arc Direction`} 
             onClick={handleToggleArcDirection} 
+          />
+          <MenuItem 
+            label={`${showMirrorPlaneNumbers ? '✓ ' : '   '}Mirror Planes/Sectors`} 
+            onClick={handleToggleMirrorPlaneNumbers} 
           />
           <div style={{ height: 1, background: 'var(--menu-border)', margin: '4px 0' }} />
           <div style={{ padding: '4px 12px', color: 'var(--text-muted)', fontSize: '11px' }}>

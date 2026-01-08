@@ -1,4 +1,4 @@
-import type { CircleShape, PathData, LineSegment, BezierSegment, ArcSegment, EllipseArcSegment, Point, MirrorAxis } from '../types'
+import type { CircleShape, PathData, LineSegment, BezierSegment, ArcSegment, EllipseArcSegment, Point, MirrorConfig } from '../types'
 import { distance, pointOnCircle } from './math'
 import { getTangentForDirections, type TangentResult } from './tangent'
 import {
@@ -6,56 +6,295 @@ import {
   NON_OVERLAP_MAX_RADIUS,
   CIRCLE_GAP,
   TANGENT_DISTANCE_FACTOR,
-  DEFAULT_TANGENT_LENGTH
+  DEFAULT_TANGENT_LENGTH,
+  MIN_CIRCLES
 } from '../constants'
 import { startMeasure, endMeasure } from '../utils/profiler'
 
+// ============================================================================
+// GENERIC N-WAY MIRROR SYSTEM
+// ============================================================================
+
 /**
- * Create a mirrored version of a circle across the specified axis
- * - 'vertical' axis (x=0): negates x position
- * - 'horizontal' axis (y=0): negates y position
- * The mirrored circle has:
- * - position component negated along the axis
- * - direction preserved (path continues same rotational direction)
- * - entry/exit offsets swapped and negated (to maintain symmetry)
+ * Tolerance for considering two positions as the same (in world units)
  */
-export function createMirroredCircle(circle: CircleShape, axis: MirrorAxis = 'vertical'): CircleShape {
+const POSITION_TOLERANCE = 0.01
+
+/**
+ * Check if two points are at the same position (within tolerance)
+ */
+function isSamePoint(a: Point, b: Point): boolean {
+  const dx = Math.abs(a.x - b.x)
+  const dy = Math.abs(a.y - b.y)
+  return dx < POSITION_TOLERANCE && dy < POSITION_TOLERANCE
+}
+
+/**
+ * Reflect a point across a line through the origin at the given angle.
+ * The angle is measured from the positive X-axis (standard mathematical convention).
+ * 
+ * For a line at angle θ from X-axis:
+ * - θ = 0: horizontal line (X-axis), reflects y → -y
+ * - θ = π/2: vertical line (Y-axis), reflects x → -x
+ */
+export function reflectPointAcrossLine(point: Point, lineAngle: number): Point {
+  // Reflection formula across a line through origin at angle θ:
+  // x' = x * cos(2θ) + y * sin(2θ)
+  // y' = x * sin(2θ) - y * cos(2θ)
+  const cos2t = Math.cos(2 * lineAngle)
+  const sin2t = Math.sin(2 * lineAngle)
+  
+  return {
+    x: point.x * cos2t + point.y * sin2t,
+    y: point.x * sin2t - point.y * cos2t
+  }
+}
+
+/**
+ * Generate all unique mirror positions for a point with N reflection planes.
+ * 
+ * With N planes at equal angular intervals (π/N apart), we get dihedral symmetry D_N:
+ * - 2N total positions (including original)
+ * - Planes are at angles: startAngle, startAngle + π/N, startAngle + 2π/N, ...
+ * 
+ * @param point - The original point
+ * @param config - Mirror configuration (planeCount and startAngle)
+ * @returns Array of unique reflected positions (not including original)
+ */
+export function generateMirrorPositions(point: Point, config: MirrorConfig): Point[] {
+  const { planeCount, startAngle } = config
+  
+  if (planeCount <= 0) return []
+  
+  const positions: Point[] = []
+  const addedPositions: Point[] = [point] // Start with original to avoid duplicating it
+  
+  // Helper to check if position is already added
+  const isAdded = (p: Point) => addedPositions.some(ap => isSamePoint(p, ap))
+  
+  // For dihedral symmetry D_N with N planes:
+  // - The planes divide the space into 2N sectors
+  // - We generate positions by applying reflections and rotations
+  
+  // Method: Generate all 2N-1 transformed positions using group operations
+  // The dihedral group D_N has elements: {e, r, r², ..., r^(N-1), s, sr, sr², ..., sr^(N-1)}
+  // where r = rotation by 2π/N, s = reflection across first plane
+  
+  const sectorAngle = Math.PI / planeCount // Angle between adjacent planes
+  
+  // Generate all reflected and rotated positions
+  for (let i = 0; i < 2 * planeCount; i++) {
+    let pos: Point
+    
+    if (i < planeCount) {
+      // Pure rotations: rotate by i * 2π/N (equivalent to reflecting across pairs of planes)
+      if (i === 0) continue // Skip identity (original point)
+      
+      const rotAngle = i * 2 * sectorAngle
+      const cos = Math.cos(rotAngle)
+      const sin = Math.sin(rotAngle)
+      pos = {
+        x: point.x * cos - point.y * sin,
+        y: point.x * sin + point.y * cos
+      }
+    } else {
+      // Reflections: reflect across plane at index (i - N), then rotate
+      const reflectPlaneIndex = i - planeCount
+      const planeAngle = startAngle + reflectPlaneIndex * sectorAngle
+      pos = reflectPointAcrossLine(point, planeAngle)
+    }
+    
+    // Add if unique
+    if (!isAdded(pos)) {
+      positions.push(pos)
+      addedPositions.push(pos)
+    }
+  }
+  
+  return positions
+}
+
+/**
+ * Get all unique mirrored circles for a single circle.
+ * Uses sector-based generation for consistency with expandMirroredCircles.
+ * 
+ * @param circle - Original circle
+ * @param config - Mirror configuration
+ * @param isFirstOrLast - If true, exclude mirrors at original's position
+ * @returns Array of unique mirrored circles
+ */
+export function getMirrorsForCircle(
+  circle: CircleShape,
+  config: MirrorConfig,
+  isFirstOrLast: boolean
+): CircleShape[] {
+  const { planeCount, startAngle } = config
+  
+  if (planeCount <= 0) return []
+  
+  const results: CircleShape[] = []
+  const addedPositions: Point[] = []
+  
+  // For first/last circles, exclude original position
+  if (isFirstOrLast) {
+    addedPositions.push(circle.center)
+  }
+  
+  const isAdded = (p: Point) => addedPositions.some(ap => isSamePoint(p, ap))
+  const sectorCount = 2 * planeCount
+  
+  // Generate mirrors for each sector (1 to 2N-1)
+  // This matches the ordering used in expandMirroredCircles
+  for (let sector = 1; sector < sectorCount; sector++) {
+    const mirror = createSectorMirror(circle, sector, planeCount, startAngle, sector - 1)
+    
+    if (!isAdded(mirror.center)) {
+      results.push(mirror)
+      addedPositions.push(mirror.center)
+    }
+  }
+  
+  return results
+}
+
+// ============================================================================
+// LEGACY COMPATIBILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Create a mirrored version of a circle across a simple axis (legacy support)
+ */
+export function createMirroredCircle(
+  circle: CircleShape, 
+  axis: 'vertical' | 'horizontal', 
+  suffix: string = '_mirror'
+): CircleShape {
   const center = axis === 'vertical'
     ? { x: -circle.center.x, y: circle.center.y }
     : { x: circle.center.x, y: -circle.center.y }
     
   return {
     ...circle,
-    id: `${circle.id}_mirror`,
+    id: `${circle.id}${suffix}`,
     name: `${circle.name} (Mirror)`,
     center,
-    // Keep the same direction (don't flip)
     direction: circle.direction,
-    // Swap and preserve entry/exit offsets for symmetry
     entryOffset: circle.exitOffset !== undefined ? -circle.exitOffset : undefined,
     exitOffset: circle.entryOffset !== undefined ? -circle.entryOffset : undefined,
-    // Swap tangent lengths
     entryTangentLength: circle.exitTangentLength,
     exitTangentLength: circle.entryTangentLength,
-    // Mirror flag is false for virtual circles
+    mirrored: false
+  }
+}
+
+/**
+ * Create a circle mirrored on both X and Y axes (legacy support)
+ */
+export function createBothAxisMirroredCircle(circle: CircleShape): CircleShape {
+  return {
+    ...circle,
+    id: `${circle.id}_mirror_both`,
+    name: `${circle.name} (Mirror XY)`,
+    center: { x: -circle.center.x, y: -circle.center.y },
+    direction: circle.direction,
+    entryOffset: circle.entryOffset,
+    exitOffset: circle.exitOffset,
+    entryTangentLength: circle.entryTangentLength,
+    exitTangentLength: circle.exitTangentLength,
+    mirrored: false
+  }
+}
+
+/**
+ * Create a mirrored circle by applying a specific sector transformation.
+ * 
+ * For N planes, sector k transformation is:
+ * - k=0: identity (original)
+ * - k=1: reflect across plane 0
+ * - k=2: reflect across plane 0, then plane 1 (= rotate by 2π/N)
+ * - k=3: reflect across planes 0,1,2 (= reflect across plane 1)
+ * - etc.
+ * 
+ * For even k: rotation by k*π/N (even number of reflections)
+ * For odd k: reflect across plane (k-1)/2, then rotate
+ */
+function createSectorMirror(
+  circle: CircleShape,
+  sector: number,
+  planeCount: number,
+  startAngle: number,
+  mirrorIndex: number
+): CircleShape {
+  const sectorAngle = Math.PI / planeCount
+  
+  let newCenter: Point
+  let isReflection: boolean
+  
+  if (sector % 2 === 0) {
+    // Even sector: pure rotation by sector * sectorAngle
+    const rotAngle = sector * sectorAngle
+    const cos = Math.cos(rotAngle)
+    const sin = Math.sin(rotAngle)
+    newCenter = {
+      x: circle.center.x * cos - circle.center.y * sin,
+      y: circle.center.x * sin + circle.center.y * cos
+    }
+    isReflection = false
+  } else {
+    // Odd sector: reflect across the plane between sector k-1 and sector k
+    // For sector k, that's plane at index ((k+1)/2) % planeCount
+    const planeIndex = ((sector + 1) / 2) % planeCount
+    const planeAngle = startAngle + planeIndex * sectorAngle
+    newCenter = reflectPointAcrossLine(circle.center, planeAngle)
+    isReflection = true
+  }
+  
+  return {
+    ...circle,
+    id: `${circle.id}_mirror_s${sector}_${mirrorIndex}`,
+    name: `${circle.name} (Mirror S${sector})`,
+    center: newCenter,
+    direction: circle.direction,
+    // For reflections, swap and negate offsets; for rotations, keep them
+    entryOffset: isReflection 
+      ? (circle.exitOffset !== undefined ? -circle.exitOffset : undefined)
+      : circle.entryOffset,
+    exitOffset: isReflection 
+      ? (circle.entryOffset !== undefined ? -circle.entryOffset : undefined)
+      : circle.exitOffset,
+    entryTangentLength: isReflection ? circle.exitTangentLength : circle.entryTangentLength,
+    exitTangentLength: isReflection ? circle.entryTangentLength : circle.exitTangentLength,
     mirrored: false
   }
 }
 
 /**
  * Expand shapes and order to include mirrored circles.
- * Mirrored circles are added after all originals in reverse order.
+ * Uses the generic N-way mirror system.
  * 
- * Example: If circles A, B, C all have mirrored=true:
- * - Original order: [A, B, C]
- * - Expanded order: [A, B, C, C', B', A']
- * - The path goes: A → B → C → C' → B' → A' → (back to A)
+ * With N reflection planes, we have 2N sectors. The path traverses:
+ * - Sector 0: original circles (forward)
+ * - Sector 1: mirrors (reversed, because we reflected)
+ * - Sector 2: mirrors (forward, because rotation = 2 reflections)
+ * - Sector 3: mirrors (reversed)
+ * - etc.
+ * 
+ * @param shapes - All shapes in the document
+ * @param order - Path order of shapes
+ * @param config - Mirror configuration (planeCount and startAngle)
+ * @returns Expanded shapes and order including mirror copies
  */
 export function expandMirroredCircles(
   shapes: CircleShape[],
   order: string[],
-  axis: MirrorAxis = 'vertical'
+  config: MirrorConfig = { planeCount: 1, startAngle: 0 }
 ): { expandedShapes: CircleShape[], expandedOrder: string[] } {
+  const { planeCount, startAngle } = config
+  
+  if (planeCount <= 0) {
+    return { expandedShapes: shapes, expandedOrder: order }
+  }
+  
   // Build lookup map for O(1) access
   const shapeMap = new Map(shapes.map(s => [s.id, s]))
   
@@ -71,21 +310,73 @@ export function expandMirroredCircles(
     return { expandedShapes: shapes, expandedOrder: order }
   }
   
-  // Create mirrored versions
-  const mirrorCopies = mirroredCircles.map(c => createMirroredCircle(c, axis))
+  const lastIndex = mirroredCircles.length - 1
+  const sectorCount = 2 * planeCount
   
-  // Reverse the mirrored copies so they connect properly
-  // A → B → C then C' → B' → A'
-  const reversedMirrorCopies = [...mirrorCopies].reverse()
+  // For each sector (1 to 2N-1), create mirrors of all mirrored circles
+  // The order within each sector depends on sector parity:
+  // - Odd sectors: reversed order (because reflection flips direction)
+  // - Even sectors: forward order (because rotation preserves direction)
   
-  // Build expanded shapes list (include all original shapes + mirror copies)
-  const expandedShapes = [...shapes, ...mirrorCopies]
+  const allMirrors: CircleShape[] = []
+  const mirrorOrder: string[] = []
   
-  // Build expanded order: original order + mirrored IDs in reverse
-  const expandedOrder = [
-    ...order,
-    ...reversedMirrorCopies.map(c => c.id)
-  ]
+  // Track all added positions to avoid duplicates across sectors
+  // (can happen when circles are on reflection axes)
+  const addedPositions: { center: Point, circleIndex: number }[] = []
+  
+  // Traverse sectors in FORWARD order (1, 2, 3, ..., 2N-1) to go around the perimeter
+  // counter-clockwise. Adjacent sectors share boundaries, so:
+  // - S0 shares boundary with S1 (at the P0 plane for 2-way, or P_ceil(0/2)=P0 plane)
+  // - S1 shares boundary with S2
+  // - etc.
+  // 
+  // For 4-way (N=2) with planes P0 at 0° and P1 at 90°:
+  // - Sector 0: 0°-90° (Q4 in canvas coords) - originals
+  // - Sector 1: 90°-180° (Q3) - reflection across P1, shares P1 boundary with S0
+  // - Sector 2: 180°-270° (Q2) - 180° rotation, shares P0 boundary with S1
+  // - Sector 3: 270°-360° (Q1) - reflection across P0, shares P1 boundary with S2
+  // This creates a smooth counter-clockwise traversal around the perimeter.
+  
+  for (let sector = 1; sector < sectorCount; sector++) {
+    const sectorMirrors: CircleShape[] = []
+    
+    for (let i = 0; i < mirroredCircles.length; i++) {
+      const circle = mirroredCircles[i]
+      const isFirstOrLast = i === 0 || i === lastIndex
+      
+      // Create mirror for this sector
+      const mirror = createSectorMirror(circle, sector, planeCount, startAngle, i)
+      
+      // Check if this mirror is a duplicate of the original (only for first/last)
+      if (isFirstOrLast && isSamePoint(circle.center, mirror.center)) {
+        continue // Skip duplicate with original
+      }
+      
+      // Check if this position was already added in a previous sector
+      // (happens when circles lie on reflection axes)
+      const alreadyAdded = addedPositions.some(
+        ap => ap.circleIndex === i && isSamePoint(ap.center, mirror.center)
+      )
+      if (alreadyAdded) {
+        continue // Skip duplicate from another sector
+      }
+      
+      addedPositions.push({ center: mirror.center, circleIndex: i })
+      sectorMirrors.push(mirror)
+    }
+    
+    // Odd sectors are reversed (reflection flips path direction)
+    const orderedSectorMirrors = sector % 2 === 1
+      ? [...sectorMirrors].reverse()
+      : sectorMirrors
+    
+    allMirrors.push(...sectorMirrors)
+    mirrorOrder.push(...orderedSectorMirrors.map(m => m.id))
+  }
+  
+  const expandedShapes = [...shapes, ...allMirrors]
+  const expandedOrder = [...order, ...mirrorOrder]
   
   return { expandedShapes, expandedOrder }
 }
@@ -93,11 +384,43 @@ export function expandMirroredCircles(
 /**
  * Get mirrored circles for rendering purposes.
  * Returns the virtual mirror circles that should be drawn as ghosts.
+ * Uses the generic N-way mirror system.
+ * 
+ * @param shapes - All shapes in the document
+ * @param config - Mirror configuration
+ * @param order - Path order (optional, used to determine first/last for deduplication)
+ * @returns Array of mirror circles for rendering
  */
-export function getMirroredCircles(shapes: CircleShape[], axis: MirrorAxis = 'vertical'): CircleShape[] {
-  return shapes
-    .filter(c => c.mirrored)
-    .map(c => createMirroredCircle(c, axis))
+export function getMirroredCircles(
+  shapes: CircleShape[], 
+  config: MirrorConfig = { planeCount: 1, startAngle: 0 },
+  order: string[] = []
+): CircleShape[] {
+  const { planeCount } = config
+  
+  if (planeCount <= 0) return []
+  
+  // Get mirrored shapes in path order (or original order if no order provided)
+  const shapeMap = new Map(shapes.map(s => [s.id, s]))
+  const orderedMirroredShapes = order.length > 0
+    ? order
+        .map(id => shapeMap.get(id))
+        .filter((s): s is CircleShape => s !== undefined && s.type === 'circle' && s.mirrored)
+    : shapes.filter(c => c.mirrored)
+  
+  if (orderedMirroredShapes.length === 0) return []
+  
+  const lastIndex = orderedMirroredShapes.length - 1
+  
+  // Collect all mirrors for all circles
+  const results: CircleShape[] = []
+  for (let i = 0; i < orderedMirroredShapes.length; i++) {
+    const isFirstOrLast = i === 0 || i === lastIndex
+    const mirrors = getMirrorsForCircle(orderedMirroredShapes[i], config, isFirstOrLast)
+    results.push(...mirrors)
+  }
+  
+  return results
 }
 
 /**
@@ -153,7 +476,7 @@ export function computeTangentHull(
   closed: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical'
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 }
 ): PathData {
   startMeasure('computeTangentHull', { circles: shapes.length })
   
@@ -161,7 +484,7 @@ export function computeTangentHull(
   
   // Expand shapes to include mirrored circles
   startMeasure('expandMirror')
-  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order, mirrorAxis)
+  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order, mirrorConfig)
   endMeasure('expandMirror')
   
   // Build lookup map for O(1) access
@@ -172,9 +495,34 @@ export function computeTangentHull(
     .map(id => shapeMap.get(id))
     .filter((s): s is CircleShape => s !== undefined && s.type === 'circle')
   
-  if (orderedCircles.length < 2) {
+  if (orderedCircles.length < MIN_CIRCLES) {
     endMeasure('computeTangentHull')
     return { segments: [], totalLength: 0 }
+  }
+  
+  // Handle single circle case - just draw the full circle arc
+  if (orderedCircles.length === 1) {
+    const circle = orderedCircles[0]
+    const clockwise = (circle.direction ?? 'cw') === 'cw'
+    
+    // For a single circle, draw a full arc from 0 to 2π (or -2π for ccw)
+    const startAngle = 0
+    const endAngle = clockwise ? Math.PI * 2 : -Math.PI * 2
+    
+    const arcLength = Math.abs(endAngle - startAngle) * circle.radius
+    
+    const segment: PathSegment = {
+      type: 'arc',
+      center: circle.center,
+      radius: circle.radius,
+      startAngle,
+      endAngle,
+      clockwise,
+      length: arcLength
+    }
+    
+    endMeasure('computeTangentHull')
+    return { segments: [segment], totalLength: arcLength }
   }
   
   const n = orderedCircles.length
@@ -189,8 +537,8 @@ export function computeTangentHull(
     const curr = orderedCircles[i]
     const next = orderedCircles[(i + 1) % n]
     
-    // Check if current circle is a mirror copy (ID ends with '_mirror')
-    const currIsMirror = curr.id.endsWith('_mirror')
+    // Check if current circle is a mirror copy (ID contains '_mirror')
+    const currIsMirror = curr.id.includes('_mirror')
     
     const tangent = getTangentForDirections(
       curr.center, curr.radius, curr.direction ?? 'cw',
@@ -789,10 +1137,10 @@ export function findPathSegmentAt(
   closed: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical'
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 }
 ): PathHitInfo | null {
   // Expand shapes to include mirrored circles
-  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order, mirrorAxis)
+  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order, mirrorConfig)
   
   // Build lookup map for O(1) access
   const shapeMap = new Map(expandedShapes.map(s => [s.id, s]))
@@ -801,22 +1149,22 @@ export function findPathSegmentAt(
     .map(id => shapeMap.get(id))
     .filter((s): s is CircleShape => s !== undefined && s.type === 'circle')
   
-  if (circles.length < 2) return null
-  
-  const pathData = computeTangentHull(shapes, order, globalStretch, closed, useStartPoint, useEndPoint, mirrorAxis)
+  if (circles.length < MIN_CIRCLES) return null
+
+  const pathData = computeTangentHull(shapes, order, globalStretch, closed, useStartPoint, useEndPoint, mirrorConfig)
   if (pathData.segments.length === 0) return null
-  
+
   // Number of original (non-mirrored) circles
   const originalCircleCount = order.length
-  
+
   let closestHit: PathHitInfo | null = null
   let closestDist = Infinity
-  
+
   // Track which circle we're "after" as we iterate segments
   // The path structure is: arc0, connector0, arc1, connector1, ...
   // connector[i] goes from circle[i] to circle[(i+1) % n]
   let connectorIndex = 0
-  
+
   for (let i = 0; i < pathData.segments.length; i++) {
     const seg = pathData.segments[i]
     
@@ -945,10 +1293,10 @@ export function findClosestPointOnPath(
   closed: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical'
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 }
 ): PathHitInfo | null {
   // Expand shapes to include mirrored circles
-  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order, mirrorAxis)
+  const { expandedShapes, expandedOrder } = expandMirroredCircles(shapes, order, mirrorConfig)
   
   // Build lookup map for O(1) access
   const shapeMap = new Map(expandedShapes.map(s => [s.id, s]))
@@ -957,17 +1305,17 @@ export function findClosestPointOnPath(
     .map(id => shapeMap.get(id))
     .filter((s): s is CircleShape => s !== undefined && s.type === 'circle')
   
-  if (circles.length < 2) return null
-  
-  const pathData = computeTangentHull(shapes, order, globalStretch, closed, useStartPoint, useEndPoint, mirrorAxis)
+  if (circles.length < MIN_CIRCLES) return null
+
+  const pathData = computeTangentHull(shapes, order, globalStretch, closed, useStartPoint, useEndPoint, mirrorConfig)
   if (pathData.segments.length === 0) return null
-  
+
   // Number of original (non-mirrored) circles
   const originalCircleCount = order.length
-  
+
   let closestHit: PathHitInfo | null = null
   let closestDist = Infinity
-  
+
   // Track which circle we're "after" as we iterate segments
   // The path structure alternates: arc0, connector0, arc1, connector1, ...
   // - arc[i] wraps around circle[i]

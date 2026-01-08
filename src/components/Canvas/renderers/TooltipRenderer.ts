@@ -1,4 +1,4 @@
-import type { Shape, CircleShape, Point, CanvasTheme, HoverTarget, MirrorAxis } from '../../../types'
+import type { Shape, CircleShape, Point, CanvasTheme, HoverTarget, MirrorConfig } from '../../../types'
 import type { ModifierKeys } from '../../../stores/selectionStore'
 import { getDotPosition, computeTangentHandleInfo } from './hitTesting'
 import { expandMirroredCircles } from '../../../geometry/path'
@@ -141,7 +141,7 @@ function getTooltipInfo(
   closedPath: boolean,
   useStartPoint: boolean,
   useEndPoint: boolean,
-  mirrorAxis: MirrorAxis = 'vertical',
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 },
   mouseWorldPos: Point | null = null,
   selectedCount: number = 1
 ): { content: TooltipContent; position: Point; anchor: 'above' | 'below' | 'left' | 'right' } | null {
@@ -152,7 +152,7 @@ function getTooltipInfo(
   // Helper to get tangent info
   const getTangentInfo = () => {
     const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
-    const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorAxis)
+    const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorConfig)
     return computeTangentHandleInfo(shape, expandedShapes, expandedOrder, closedPath, useStartPoint, useEndPoint)
   }
 
@@ -532,7 +532,7 @@ export function renderTooltips(
   closedPath: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical',
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 },
   modifierKeys?: ModifierKeys,
   mouseWorldPos: Point | null = null,
   snapToGrid: boolean = false,
@@ -569,7 +569,7 @@ export function renderTooltips(
     closedPath,
     useStartPoint,
     useEndPoint,
-    mirrorAxis,
+    mirrorConfig,
     mouseWorldPos,
     selectedCount
   )

@@ -110,7 +110,7 @@ export function useCanvasInteraction(
   const closedPath = useDocumentStore(state => state.closedPath)
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
-  const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
+  const mirrorConfig = useDocumentStore(state => state.mirrorConfig)
   const updateShape = useDocumentStore(state => state.updateShape)
   const updateShapes = useDocumentStore(state => state.updateShapes)
   const removeShape = useDocumentStore(state => state.removeShape)
@@ -190,7 +190,7 @@ export function useCanvasInteraction(
     const handleTolerance = HANDLE_TOLERANCE / zoom
     
     // Get expanded shapes/order (including mirrored circles)
-    const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorAxis)
+    const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorConfig)
     
     // First check tangent handles on selected shapes (highest priority)
     for (const shape of shapes) {
@@ -335,7 +335,7 @@ export function useCanvasInteraction(
     }
     
     // Check if click is on a path segment (connector lines/beziers)
-    const pathHit = findPathSegmentAt(circles, shapeOrder, worldPos, PATH_HIT_TOLERANCE / zoom, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis)
+    const pathHit = findPathSegmentAt(circles, shapeOrder, worldPos, PATH_HIT_TOLERANCE / zoom, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorConfig)
     
     if (pathHit) {
       // Calculate non-overlapping radius (reuse the existing circles array from scope)
@@ -368,7 +368,7 @@ export function useCanvasInteraction(
     
     // Double-click on empty space - create circle at click position
     // Use findClosestPointOnPath to determine where to insert in the path order
-    const closestPathHit = findClosestPointOnPath(circles, shapeOrder, worldPos, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis)
+    const closestPathHit = findClosestPointOnPath(circles, shapeOrder, worldPos, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorConfig)
     
     // Calculate non-overlapping radius at the click position
     const radius = calculateNonOverlappingRadius(worldPos, circles)
@@ -590,7 +590,7 @@ export function useCanvasInteraction(
         
         // Click on tangent handle: start tangent dragging
         if (tangentHandle) {
-          const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorAxis)
+          const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorConfig)
           const info = computeTangentHandleInfo(shape, expandedShapes, expandedOrder, closedPath, useStartPoint, useEndPoint)
           
           let mode: DragMode = null
@@ -855,7 +855,7 @@ export function useCanvasInteraction(
             // Show click preview for double-click circle creation
             // But only if this wasn't a deselect click (no prior selection)
             if (!e.shiftKey && !e.altKey && !hadSelection) {
-              const pathHit = findPathSegmentAt(circles, shapeOrder, startWorldPos, PATH_HIT_TOLERANCE / zoom, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis)
+              const pathHit = findPathSegmentAt(circles, shapeOrder, startWorldPos, PATH_HIT_TOLERANCE / zoom, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorConfig)
               const previewRadius = calculateNonOverlappingRadius(pathHit ? pathHit.point : startWorldPos, circles)
               const previewPosition = pathHit ? pathHit.point : startWorldPos
               showClickPreview(previewPosition, previewRadius)
@@ -1139,7 +1139,7 @@ export function useCanvasInteraction(
           setExitOffset(shape.id, offsetValue)
         }
       } else if (dragState.mode === 'tangent-entry-length' || dragState.mode === 'tangent-exit-length') {
-        const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorAxis)
+        const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorConfig)
         const info = computeTangentHandleInfo(shape, expandedShapes, expandedOrder, closedPath, useStartPoint, useEndPoint)
         
         if (info) {

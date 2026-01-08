@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useDocumentStore } from '../../stores/documentStore'
 import { computeTangentHull } from '../../geometry/path'
 import { PathModeIcon, type PathMode } from '../icons/Icons'
+import { MIN_CIRCLES } from '../../constants'
 import type { CircleShape } from '../../types'
 import styles from './HierarchyPanel.module.css'
 
@@ -20,7 +21,7 @@ export function PathInfo() {
   const closedPath = useDocumentStore(state => state.closedPath)
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
-  const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
+  const mirrorConfig = useDocumentStore(state => state.mirrorConfig)
   const cyclePathMode = useDocumentStore(state => state.cyclePathMode)
   
   // Derive current path mode from state
@@ -32,16 +33,16 @@ export function PathInfo() {
   
   const pathData = useMemo(() => {
     const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
-    if (circles.length < 2) return null
-    return computeTangentHull(circles, shapeOrder, 0, closedPath, useStartPoint, useEndPoint, mirrorAxis)
-  }, [shapes, shapeOrder, closedPath, useStartPoint, useEndPoint, mirrorAxis])
-  
+    if (circles.length < MIN_CIRCLES) return null
+    return computeTangentHull(circles, shapeOrder, 0, closedPath, useStartPoint, useEndPoint, mirrorConfig)
+  }, [shapes, shapeOrder, closedPath, useStartPoint, useEndPoint, mirrorConfig])
+
   if (!pathData) {
     return (
       <div className={styles.pathInfo}>
         <div className={styles.pathInfoTitle}>PATH</div>
         <div className={styles.pathInfoContent}>
-          Add at least 2 circles to create a path
+          Add at least {MIN_CIRCLES} circle to create a path
         </div>
       </div>
     )

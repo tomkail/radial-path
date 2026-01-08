@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useDocumentStore } from '../../stores/documentStore'
 import { computeTangentHull } from '../../geometry/path'
 import { pathSegmentsToSvgPath, calculatePathBounds } from '../../utils/fileIO'
+import { MIN_CIRCLES } from '../../constants'
 import type { CircleShape } from '../../types'
 import styles from './HierarchyPanel.module.css'
 
@@ -14,11 +15,11 @@ export function SvgPreview() {
   const closedPath = useDocumentStore(state => state.closedPath)
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
-  const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
+  const mirrorConfig = useDocumentStore(state => state.mirrorConfig)
   
   const svgData = useMemo(() => {
     const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
-    if (circles.length < 2) return null
+    if (circles.length < MIN_CIRCLES) return null
     
     const pathData = computeTangentHull(
       circles,
@@ -27,7 +28,7 @@ export function SvgPreview() {
       closedPath,
       useStartPoint,
       useEndPoint,
-      mirrorAxis
+      mirrorConfig
     )
     
     if (pathData.segments.length === 0) return null
@@ -48,7 +49,7 @@ export function SvgPreview() {
       width: viewBoxWidth,
       height: viewBoxHeight
     }
-  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis])
+  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorConfig])
   
   if (!svgData) {
     return (

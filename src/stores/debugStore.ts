@@ -16,6 +16,7 @@ export interface DebugState {
   showCircleCenters: boolean
   showGridCoords: boolean
   showArcDirection: boolean  // Show expected vs actual arc direction
+  showMirrorPlaneNumbers: boolean  // Show plane indices and sector numbers for mirroring
   
   // Profiling
   profilingEnabled: boolean
@@ -29,6 +30,7 @@ export interface DebugState {
   toggleCircleCenters: () => void
   toggleGridCoords: () => void
   toggleArcDirection: () => void
+  toggleMirrorPlaneNumbers: () => void
   resetDebug: () => void
   
   // Profiling actions
@@ -50,6 +52,7 @@ export const useDebugStore = create<DebugState>()(
       showCircleCenters: false,
       showGridCoords: false,
       showArcDirection: false,
+      showMirrorPlaneNumbers: false,
       
       // Profiling disabled by default
       profilingEnabled: false,
@@ -62,6 +65,7 @@ export const useDebugStore = create<DebugState>()(
       toggleCircleCenters: () => set((state) => ({ showCircleCenters: !state.showCircleCenters })),
       toggleGridCoords: () => set((state) => ({ showGridCoords: !state.showGridCoords })),
       toggleArcDirection: () => set((state) => ({ showArcDirection: !state.showArcDirection })),
+      toggleMirrorPlaneNumbers: () => set((state) => ({ showMirrorPlaneNumbers: !state.showMirrorPlaneNumbers })),
       resetDebug: () => {
         disableProfiler()
         clearProfilingData()
@@ -73,6 +77,7 @@ export const useDebugStore = create<DebugState>()(
           showCircleCenters: false,
           showGridCoords: false,
           showArcDirection: false,
+          showMirrorPlaneNumbers: false,
           profilingEnabled: false,
           showPerformanceOverlay: false,
         })
@@ -121,6 +126,7 @@ export const useDebugStore = create<DebugState>()(
         showCircleCenters: state.showCircleCenters,
         showGridCoords: state.showGridCoords,
         showArcDirection: state.showArcDirection,
+        showMirrorPlaneNumbers: state.showMirrorPlaneNumbers,
         // Don't persist profiling state - start fresh each session
       }),
       // Sync profiler state on rehydration

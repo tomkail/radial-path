@@ -12,7 +12,7 @@ import type { CircleShape } from '../types'
  * @returns true if fit was performed, false if no shapes to fit
  */
 export function fitToView(silent = false): boolean {
-  const shapes = useDocumentStore.getState().shapes
+  const { shapes, shapeOrder, mirrorConfig } = useDocumentStore.getState()
   const { width, height } = useCanvasStore.getState()
   const fitToRect = useViewportStore.getState().fitToRect
   const info = useNotificationStore.getState().info
@@ -23,7 +23,7 @@ export function fitToView(silent = false): boolean {
   }
   
   // Include mirrored circles in the bounds calculation
-  const mirroredCircles = getMirroredCircles(shapes as CircleShape[])
+  const mirroredCircles = getMirroredCircles(shapes as CircleShape[], mirrorConfig, shapeOrder)
   const allShapes = [...shapes, ...mirroredCircles]
   
   const bounds = getShapesBounds(allShapes)

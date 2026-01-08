@@ -44,6 +44,7 @@ export const LENGTH_SNAP_THRESHOLD = 0.1      // Snap length to 1.0 when within 
 
 export const DEFAULT_CIRCLE_RADIUS = 50
 export const MIN_CIRCLE_RADIUS = 5
+export const MIN_CIRCLES = 1                 // Minimum number of circles required for a path
 export const DUPLICATE_OFFSET = { x: 20, y: 20 }
 
 // Non-overlapping radius calculation

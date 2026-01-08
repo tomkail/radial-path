@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Shape, SerpentineDocument, CircleShape, MirrorAxis } from '../types'
+import type { Shape, SerpentineDocument, CircleShape, MirrorConfig } from '../types'
 import { defaultPreset } from '../utils/presets'
 import { startMeasure, endMeasure } from '../utils/profiler'
 import type { PathMode } from '../components/icons/Icons'
@@ -8,6 +8,22 @@ import type { PathMode } from '../components/icons/Icons'
 // Startup timing - runs during module evaluation
 const moduleStartTime = performance.now()
 console.log('%c[Store] documentStore module loading...', 'color: #ffd93d;')
+
+/**
+ * Common mirror presets for cycling through
+ * - 2-way vertical: 1 plane at 0° (vertical axis)
+ * - 2-way horizontal: 1 plane at 90° (horizontal axis)
+ * - 4-way: 2 planes at 0° and 90°
+ * - 6-way: 3 planes at 0°, 60°, 120°
+ * - 8-way: 4 planes at 0°, 45°, 90°, 135°
+ */
+export const MIRROR_PRESETS: { name: string; config: MirrorConfig }[] = [
+  { name: '2-way (vertical)', config: { planeCount: 1, startAngle: Math.PI / 2 } }, // Y-axis reflection (left-right symmetry)
+  { name: '2-way (horizontal)', config: { planeCount: 1, startAngle: 0 } }, // X-axis reflection (up-down symmetry)
+  { name: '4-way', config: { planeCount: 2, startAngle: 0 } },
+  { name: '6-way', config: { planeCount: 3, startAngle: 0 } },
+  { name: '8-way', config: { planeCount: 4, startAngle: 0 } },
+]
 
 interface DocumentState {
   // State
@@ -17,7 +33,7 @@ interface DocumentState {
   closedPath: boolean    // Whether the path loops back to start
   useStartPoint: boolean // Whether to use tangent point on first circle (when not looping)
   useEndPoint: boolean   // Whether to use tangent point on last circle (when not looping)
-  mirrorAxis: MirrorAxis // Which axis to mirror across ('vertical' = x=0, 'horizontal' = y=0)
+  mirrorConfig: MirrorConfig // Mirror configuration (planeCount + startAngle)
   fileName: string | null
   isDirty: boolean       // Whether document has unsaved changes
   
@@ -46,7 +62,8 @@ interface DocumentState {
   duplicateShape: (id: string) => void
   toggleDirection: (id: string) => void
   toggleMirror: (id: string) => void
-  toggleMirrorAxis: () => void
+  cycleMirrorPreset: () => void
+  setMirrorConfig: (config: MirrorConfig) => void
   toggleClosedPath: () => void
   setClosedPath: (closed: boolean) => void
   toggleUseStartPoint: () => void
@@ -64,7 +81,7 @@ interface DocumentState {
 }
 
 // Default starting document - uses the default preset with fresh UUIDs
-const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 'globalStretch' | 'closedPath' | 'useStartPoint' | 'useEndPoint' | 'mirrorAxis' | 'fileName' | 'isDirty'> => {
+const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 'globalStretch' | 'closedPath' | 'useStartPoint' | 'useEndPoint' | 'mirrorConfig' | 'fileName' | 'isDirty'> => {
   const doc = defaultPreset.document
   
   // Create a mapping from preset IDs to new UUIDs
@@ -89,10 +106,21 @@ const createDefaultDocument = (): Pick<DocumentState, 'shapes' | 'shapeOrder' | 
     closedPath: doc.settings?.closedPath ?? false,
     useStartPoint: doc.settings?.useStartPoint ?? true,
     useEndPoint: doc.settings?.useEndPoint ?? true,
-    mirrorAxis: 'vertical' as MirrorAxis,
+    mirrorConfig: MIRROR_PRESETS[0].config, // Default to 2-way vertical
     fileName: null,
     isDirty: false
   }
+}
+
+/**
+ * Find the index of the current mirror config in MIRROR_PRESETS
+ * Returns -1 if not found (custom config)
+ */
+function findMirrorPresetIndex(config: MirrorConfig): number {
+  return MIRROR_PRESETS.findIndex(p => 
+    p.config.planeCount === config.planeCount && 
+    Math.abs(p.config.startAngle - config.startAngle) < 0.001
+  )
 }
 
 // Helper to update a specific circle by ID
@@ -262,10 +290,16 @@ export const useDocumentStore = create<DocumentState>()(
         isDirty: true
       })),
       
-      toggleMirrorAxis: () => set((state) => ({
-        mirrorAxis: state.mirrorAxis === 'vertical' ? 'horizontal' : 'vertical',
-        isDirty: true
-      })),
+      cycleMirrorPreset: () => set((state) => {
+        const currentIndex = findMirrorPresetIndex(state.mirrorConfig)
+        const nextIndex = (currentIndex + 1) % MIRROR_PRESETS.length
+        return {
+          mirrorConfig: MIRROR_PRESETS[nextIndex].config,
+          isDirty: true
+        }
+      }),
+      
+      setMirrorConfig: (config) => set({ mirrorConfig: config, isDirty: true }),
       
       toggleClosedPath: () => set((state) => ({
         closedPath: !state.closedPath,
@@ -409,7 +443,7 @@ export const useDocumentStore = create<DocumentState>()(
         closedPath: state.closedPath,
         useStartPoint: state.useStartPoint,
         useEndPoint: state.useEndPoint,
-        mirrorAxis: state.mirrorAxis,
+        mirrorConfig: state.mirrorConfig,
         fileName: state.fileName
       }),
       // Migrate old data
@@ -417,7 +451,24 @@ export const useDocumentStore = create<DocumentState>()(
         console.log('%c[Store] documentStore hydrating from localStorage...', 'color: #ffd93d;')
         const hydrateStart = performance.now()
         
-        const persisted = persistedState as Partial<DocumentState> & { globalTension?: number; globalFling?: number }
+        const persisted = persistedState as Partial<DocumentState> & { 
+          globalTension?: number
+          globalFling?: number
+          mirrorAxis?: 'vertical' | 'horizontal' | 'both'  // Legacy field
+        }
+        
+        // Migrate old mirrorAxis to mirrorConfig
+        const migrateMirrorConfig = (): MirrorConfig => {
+          if (persisted.mirrorConfig) return persisted.mirrorConfig
+          // Migrate from legacy mirrorAxis
+          switch (persisted.mirrorAxis) {
+            case 'horizontal': return { planeCount: 1, startAngle: Math.PI / 2 }
+            case 'both': return { planeCount: 2, startAngle: 0 }
+            case 'vertical':
+            default: return { planeCount: 1, startAngle: 0 }
+          }
+        }
+        
         const result = {
           ...currentState,
           ...persisted,
@@ -428,8 +479,8 @@ export const useDocumentStore = create<DocumentState>()(
           // Default start/end point settings to true for backwards compatibility
           useStartPoint: persisted.useStartPoint ?? true,
           useEndPoint: persisted.useEndPoint ?? true,
-          // Default mirrorAxis to vertical for backwards compatibility
-          mirrorAxis: persisted.mirrorAxis ?? 'vertical',
+          // Migrate mirrorAxis to mirrorConfig
+          mirrorConfig: migrateMirrorConfig(),
           // Migrate shapes: wrapSide → direction, fling/tension → stretch
           shapes: (persisted.shapes ?? currentState.shapes).map(shape => {
             const legacyWrapSide = (shape as any).wrapSide as 'left' | 'right' | undefined

@@ -3,6 +3,7 @@ import { useDocumentStore } from '../../stores/documentStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { computeTangentHull } from '../../geometry/path'
 import { pathSegmentsToSvgPath, calculatePathBounds, exportSvg } from '../../utils/fileIO'
+import { MIN_CIRCLES } from '../../constants'
 import type { CircleShape } from '../../types'
 import styles from './FloatingPreview.module.css'
 
@@ -32,7 +33,7 @@ export function FloatingPreview() {
   const closedPath = useDocumentStore(state => state.closedPath)
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
-  const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
+  const mirrorConfig = useDocumentStore(state => state.mirrorConfig)
   
   const isVisible = useSettingsStore(state => state.showSvgPreview)
   const setIsVisible = useSettingsStore(state => state.setShowSvgPreview)
@@ -51,7 +52,7 @@ export function FloatingPreview() {
   const svgData = useMemo(() => {
     const start = performance.now()
     const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
-    if (circles.length < 2) return null
+    if (circles.length < MIN_CIRCLES) return null
     
     const pathData = computeTangentHull(
       circles,
@@ -60,7 +61,7 @@ export function FloatingPreview() {
       closedPath,
       useStartPoint,
       useEndPoint,
-      mirrorAxis
+      mirrorConfig
     )
     
     if (pathData.segments.length === 0) return null
@@ -94,7 +95,7 @@ export function FloatingPreview() {
     
     console.log(`%c[FloatingPreview] svgData computed in ${(performance.now() - start).toFixed(1)}ms`, 'color: #ffd93d;')
     return result
-  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis, strokeWidth])
+  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorConfig, strokeWidth])
 
   // Drag handlers
   const handleDragStart = useCallback((e: React.MouseEvent) => {

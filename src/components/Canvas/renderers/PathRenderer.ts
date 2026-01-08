@@ -1,5 +1,5 @@
-import type { Shape, CircleShape, ArcSegment, EllipseArcSegment, LineSegment, BezierSegment, PathSegment, MirrorAxis } from '../../../types'
-import { computeTangentHull } from '../../../geometry/path'
+import type { Shape, CircleShape, ArcSegment, EllipseArcSegment, LineSegment, BezierSegment, PathSegment, MirrorConfig } from '../../../types'
+import { computeTangentHull, expandMirroredCircles } from '../../../geometry/path'
 import { pointOnCircle } from '../../../geometry/math'
 import { useDebugStore } from '../../../stores/debugStore'
 import { PATH_LABEL_OFFSET } from '../../../constants'
@@ -21,7 +21,7 @@ export function renderPath(
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
   pathStroke: string = '#ffffff',
-  mirrorAxis: MirrorAxis = 'vertical'
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 }
 ) {
   // Count circles without creating new array (avoid GC)
   let circleCount = 0
@@ -34,7 +34,7 @@ export function renderPath(
   // Pass shapes directly - computeTangentHull handles filtering internally
   const circles = shapes as CircleShape[]
   
-  const pathData = computeTangentHull(circles, order, globalStretch, closed, useStartPoint, useEndPoint, mirrorAxis)
+  const pathData = computeTangentHull(circles, order, globalStretch, closed, useStartPoint, useEndPoint, mirrorConfig)
   
   if (pathData.segments.length === 0) return
   
@@ -129,7 +129,9 @@ export function renderPath(
   
   // Debug visualizations
   const debug = useDebugStore.getState()
-  renderDebugInfo(ctx, pathData.segments, circles, order, debug, zoom)
+  // Get expanded shapes and order (including mirrored circles) for debug visualization
+  const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, order, mirrorConfig)
+  renderDebugInfo(ctx, pathData.segments, expandedShapes, expandedOrder, debug, zoom)
 }
 
 /**
@@ -257,15 +259,19 @@ function renderDebugInfo(
     }
   }
   
-  // Path order numbers
+  // Path order numbers (including mirrored circles)
   if (debug.showPathOrder) {
     const fontSize = Math.round(14 * uiScale)
     ctx.font = `bold ${fontSize}px monospace`
     for (let i = 0; i < order.length; i++) {
       const circle = circles.find(c => c.id === order[i])
       if (circle) {
+        // Check if this is a mirrored circle (ID contains '_mirror')
+        const isMirror = circle.id.includes('_mirror')
+        
         // Draw order number in circle center
-        ctx.fillStyle = '#ffffff'
+        // Use different colors for original vs mirrored circles
+        ctx.fillStyle = isMirror ? '#ffaa00' : '#ffffff'  // Orange for mirrors, white for originals
         ctx.strokeStyle = '#000000'
         ctx.lineWidth = 3 * uiScale
         const text = `${i + 1}`

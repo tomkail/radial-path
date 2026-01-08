@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, ReactNode } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { useDocumentStore } from '../../stores/documentStore'
+import { useDocumentStore, MIRROR_PRESETS } from '../../stores/documentStore'
 import { useDebugStore } from '../../stores/debugStore'
 import { useHistoryStore, undo, redo } from '../../stores/historyStore'
 import { useThemeStore } from '../../stores/themeStore'
@@ -14,6 +14,9 @@ import {
   Scan as FrameIcon,
   FlipHorizontal as VerticalAxisIcon,
   FlipVertical as HorizontalAxisIcon,
+  Maximize2 as FourWayIcon,
+  Hexagon as SixWayIcon,
+  Octagon as EightWayIcon,
   Ruler as RulerIcon,
   Undo2 as UndoIcon,
   Redo2 as RedoIcon,
@@ -26,6 +29,42 @@ import {
 } from '../icons/Icons'
 import { Tooltip } from '../Tooltip/Tooltip'
 import styles from './Toolbar.module.css'
+import type { MirrorConfig } from '../../types'
+
+/**
+ * Get the display name for a mirror configuration
+ */
+function getMirrorPresetName(config: MirrorConfig): string {
+  const preset = MIRROR_PRESETS.find(p => 
+    p.config.planeCount === config.planeCount && 
+    Math.abs(p.config.startAngle - config.startAngle) < 0.001
+  )
+  if (preset) return preset.name
+  return `${config.planeCount * 2}-way (${Math.round(config.startAngle * 180 / Math.PI)}°)`
+}
+
+/**
+ * Get the icon for a mirror configuration
+ */
+function getMirrorIcon(config: MirrorConfig) {
+  const { planeCount, startAngle } = config
+  
+  if (planeCount === 1) {
+    // 2-way: vertical or horizontal icon based on angle
+    // startAngle = π/2 means vertical plane (left-right symmetry)
+    // startAngle = 0 means horizontal plane (top-bottom symmetry)
+    const isVertical = Math.abs(startAngle - Math.PI / 2) < 0.01
+    return isVertical ? <VerticalAxisIcon size={20} /> : <HorizontalAxisIcon size={20} />
+  } else if (planeCount === 2) {
+    return <FourWayIcon size={20} />
+  } else if (planeCount === 3) {
+    return <SixWayIcon size={20} />
+  } else if (planeCount >= 4) {
+    return <EightWayIcon size={20} />
+  }
+  
+  return <VerticalAxisIcon size={20} />
+}
 
 // Menu dropdown that opens upward
 interface DropdownMenuProps {
@@ -143,10 +182,10 @@ export function Toolbar() {
   const closedPath = useDocumentStore(state => state.closedPath)
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
-  const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
+  const mirrorConfig = useDocumentStore(state => state.mirrorConfig)
   const shapes = useDocumentStore(state => state.shapes)
   const cyclePathMode = useDocumentStore(state => state.cyclePathMode)
-  const toggleMirrorAxis = useDocumentStore(state => state.toggleMirrorAxis)
+  const cycleMirrorPreset = useDocumentStore(state => state.cycleMirrorPreset)
   
   // Derive current path mode from state
   const pathMode: PathMode = closedPath ? 'closed' 
@@ -175,12 +214,14 @@ export function Toolbar() {
   const showPathOrder = useDebugStore(state => state.showPathOrder)
   const showCircleCenters = useDebugStore(state => state.showCircleCenters)
   const showArcDirection = useDebugStore(state => state.showArcDirection)
+  const showMirrorPlaneNumbers = useDebugStore(state => state.showMirrorPlaneNumbers)
   const toggleTangentPoints = useDebugStore(state => state.toggleTangentPoints)
   const toggleTangentLabels = useDebugStore(state => state.toggleTangentLabels)
   const toggleArcAngles = useDebugStore(state => state.toggleArcAngles)
   const togglePathOrder = useDebugStore(state => state.togglePathOrder)
   const toggleCircleCenters = useDebugStore(state => state.toggleCircleCenters)
   const toggleArcDirection = useDebugStore(state => state.toggleArcDirection)
+  const toggleMirrorPlaneNumbers = useDebugStore(state => state.toggleMirrorPlaneNumbers)
   const resetDebug = useDebugStore(state => state.resetDebug)
   const profilingEnabled = useDebugStore(state => state.profilingEnabled)
   const showPerformanceOverlay = useDebugStore(state => state.showPerformanceOverlay)
@@ -280,13 +321,13 @@ export function Toolbar() {
           </button>
         </Tooltip>
         {hasMirroredShapes && (
-          <Tooltip text={mirrorAxis === 'vertical' ? "Switch to horizontal mirror" : "Switch to vertical mirror"}>
+          <Tooltip text={getMirrorPresetName(mirrorConfig) + " - click to cycle"}>
             <button
               className={styles.iconToggle}
-              onClick={toggleMirrorAxis}
-              aria-label={`Mirror axis: ${mirrorAxis}`}
+              onClick={cycleMirrorPreset}
+              aria-label={`Mirror mode: ${getMirrorPresetName(mirrorConfig)}`}
             >
-              {mirrorAxis === 'vertical' ? <VerticalAxisIcon size={20} /> : <HorizontalAxisIcon size={20} />}
+              {getMirrorIcon(mirrorConfig)}
             </button>
           </Tooltip>
         )}
@@ -403,6 +444,10 @@ export function Toolbar() {
           <MenuItem 
             label={`${showArcDirection ? '✓ ' : '   '}Arc Direction`} 
             onClick={handleToggleSetting(toggleArcDirection)} 
+          />
+          <MenuItem 
+            label={`${showMirrorPlaneNumbers ? '✓ ' : '   '}Mirror Planes/Sectors`} 
+            onClick={handleToggleSetting(toggleMirrorPlaneNumbers)} 
           />
           <MenuItem label="Hide All Debug" onClick={handleToggleSetting(resetDebug)} />
           

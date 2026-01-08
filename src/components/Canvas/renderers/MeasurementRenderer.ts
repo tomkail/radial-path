@@ -1,6 +1,6 @@
-import type { Shape, CircleShape, MeasurementMode, LineSegment, BezierSegment, ArcSegment, EllipseArcSegment, MirrorAxis } from '../../../types'
+import type { Shape, CircleShape, MeasurementMode, LineSegment, BezierSegment, ArcSegment, EllipseArcSegment, MirrorConfig } from '../../../types'
 import { computeTangentHull } from '../../../geometry/path'
-import { MEASUREMENT_LABEL_OFFSET } from '../../../constants'
+import { MEASUREMENT_LABEL_OFFSET, MIN_CIRCLES } from '../../../constants'
 
 // Cache for measurement CSS values
 let measureCssCache: { textColor: string } | null = null
@@ -39,7 +39,7 @@ export function renderMeasurements(
   closed: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical',
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 },
   circlesWithVisibleUI: Set<string> = new Set()
 ) {
   if (mode === 'clean') return
@@ -66,8 +66,8 @@ export function renderMeasurements(
   }
   
   // Render path measurements
-  if (circles.length >= 2) {
-    const pathData = computeTangentHull(circles, order, 0, closed, useStartPoint, useEndPoint, mirrorAxis)
+  if (circles.length >= MIN_CIRCLES) {
+    const pathData = computeTangentHull(circles, order, 0, closed, useStartPoint, useEndPoint, mirrorConfig)
     
     // Segment lengths (only in detailed mode)
     if (mode === 'detailed') {

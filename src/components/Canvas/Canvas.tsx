@@ -81,7 +81,7 @@ export function Canvas() {
   const closedPath = useDocumentStore(state => state.closedPath)
   const useStartPoint = useDocumentStore(state => state.useStartPoint)
   const useEndPoint = useDocumentStore(state => state.useEndPoint)
-  const mirrorAxis = useDocumentStore(state => state.mirrorAxis)
+  const mirrorConfig = useDocumentStore(state => state.mirrorConfig)
   const pan = useViewportStore(state => state.pan)
   const zoom = useViewportStore(state => state.zoom)
   const selectedIds = useSelectionStore(state => state.selectedIds)
@@ -107,6 +107,7 @@ export function Canvas() {
     showArcAngles: state.showArcAngles,
     showPathOrder: state.showPathOrder,
     showCircleCenters: state.showCircleCenters,
+    showMirrorPlaneNumbers: state.showMirrorPlaneNumbers,
   }))
   
   // Profiling state
@@ -166,7 +167,7 @@ export function Canvas() {
       // In isolate mode, only render the path - skip everything else
       if (isolatePath) {
         startMeasure('path (isolated)')
-        renderPath(ctx, shapes, shapeOrder, zoom, globalStretch, closedPath, useStartPoint, useEndPoint, theme.pathStroke, mirrorAxis)
+        renderPath(ctx, shapes, shapeOrder, zoom, globalStretch, closedPath, useStartPoint, useEndPoint, theme.pathStroke, mirrorConfig)
         endMeasure('path (isolated)')
         ctx.restore()
         lastRenderErrorRef.current = null
@@ -188,7 +189,7 @@ export function Canvas() {
       const hasMirroredCircles = shapes.some(s => s.type === 'circle' && s.mirrored)
       if (hasMirroredCircles) {
         startMeasure('mirrorAxis')
-        renderMirrorAxis(ctx, canvas.width, canvas.height, pan, zoom, theme.gridColor, mirrorAxis)
+        renderMirrorAxis(ctx, canvas.width, canvas.height, pan, zoom, theme.gridColor, mirrorConfig, debugSettings.showMirrorPlaneNumbers)
         endMeasure('mirrorAxis')
         if (isFirstRender) mark('mirrorAxis')
       }
@@ -196,7 +197,7 @@ export function Canvas() {
       // Shapes first (below path)
       // Returns set of circle IDs with visible UI (for hiding overlapping measurements)
       startMeasure('shapes')
-      const circlesWithVisibleUI = renderShapes(ctx, shapes, selectedIds, hoveredId, hoverTarget, theme, zoom, shapeOrder, mirrorAxis, measurementMode, mouseWorldPos)
+      const circlesWithVisibleUI = renderShapes(ctx, shapes, selectedIds, hoveredId, hoverTarget, theme, zoom, shapeOrder, mirrorConfig, measurementMode, mouseWorldPos)
       endMeasure('shapes')
       if (isFirstRender) mark('shapes')
       
@@ -237,7 +238,7 @@ export function Canvas() {
       
       // Path on top of shapes
       startMeasure('path')
-      renderPath(ctx, shapes, shapeOrder, zoom, globalStretch, closedPath, useStartPoint, useEndPoint, theme.pathStroke, mirrorAxis)
+      renderPath(ctx, shapes, shapeOrder, zoom, globalStretch, closedPath, useStartPoint, useEndPoint, theme.pathStroke, mirrorConfig)
       endMeasure('path')
       if (isFirstRender) mark('path')
       
@@ -248,7 +249,7 @@ export function Canvas() {
       
       // Tangent handles on top of path (for selected circles)
       startMeasure('handles')
-      renderSelectedTangentHandles(ctx, shapes, selectedIds, hoverTarget, shapeOrder, theme, zoom, closedPath, useStartPoint, useEndPoint, mirrorAxis)
+      renderSelectedTangentHandles(ctx, shapes, selectedIds, hoverTarget, shapeOrder, theme, zoom, closedPath, useStartPoint, useEndPoint, mirrorConfig)
       endMeasure('handles')
       if (isFirstRender) mark('handles')
       
@@ -267,7 +268,7 @@ export function Canvas() {
         closedPath,
         useStartPoint,
         useEndPoint,
-        mirrorAxis
+        mirrorConfig
       )
       
       // Tooltips for interactive elements (only when not dragging)
@@ -283,7 +284,7 @@ export function Canvas() {
           closedPath,
           useStartPoint,
           useEndPoint,
-          mirrorAxis,
+          mirrorConfig,
           modifierKeys,
           mouseWorldPos,
           snapToGrid,
@@ -300,7 +301,7 @@ export function Canvas() {
       // Measurements on top of everything
       if (measurementMode !== 'clean') {
         startMeasure('measurements')
-        renderMeasurements(ctx, shapes, shapeOrder, measurementMode, zoom, closedPath, useStartPoint, useEndPoint, mirrorAxis, circlesWithVisibleUI)
+        renderMeasurements(ctx, shapes, shapeOrder, measurementMode, zoom, closedPath, useStartPoint, useEndPoint, mirrorConfig, circlesWithVisibleUI)
         endMeasure('measurements')
       }
       
@@ -370,7 +371,7 @@ export function Canvas() {
     }
     
     console.log(`%c[Canvas] render() completed in ${(performance.now() - renderStart).toFixed(1)}ms`, 'color: #00ff88;')
-  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorAxis, pan, zoom, selectedIds, hoveredId, hoverTarget, dragState, clickPreview, activeGuides, mouseWorldPos, gridSize, showGrid, measurementMode, isolatePath, debugSettings, theme, showPerformanceOverlay])
+  }, [shapes, shapeOrder, globalStretch, closedPath, useStartPoint, useEndPoint, mirrorConfig, pan, zoom, selectedIds, hoveredId, hoverTarget, dragState, clickPreview, activeGuides, mouseWorldPos, gridSize, showGrid, measurementMode, isolatePath, debugSettings, theme, showPerformanceOverlay])
   
   // Helper to draw performance overlay
   function drawPerformanceOverlay(ctx: CanvasRenderingContext2D, width: number, _height: number) {

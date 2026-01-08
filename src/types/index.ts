@@ -13,7 +13,20 @@ export interface Rect {
 
 // Shape types
 export type Direction = 'cw' | 'ccw'  // Clockwise or counter-clockwise
-export type MirrorAxis = 'vertical' | 'horizontal'  // Mirror axis orientation
+/**
+ * Mirror configuration for N-way symmetry
+ * - planeCount: number of reflection planes (0 = none, 1 = 2-way, 2 = 4-way, 3 = 6-way, etc.)
+ * - startAngle: angle of first plane in radians (0 = vertical Y-axis)
+ * 
+ * With N planes equally spaced, we get 2N-fold dihedral symmetry (2N-1 mirror copies)
+ */
+export interface MirrorConfig {
+  planeCount: number
+  startAngle: number
+}
+
+// Legacy type alias for backwards compatibility
+export type MirrorAxis = 'vertical' | 'horizontal' | 'both'
 
 export interface CircleShape {
   id: string

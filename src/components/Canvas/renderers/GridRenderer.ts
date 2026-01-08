@@ -1,4 +1,4 @@
-import type { Point, MirrorAxis } from '../../../types'
+import type { Point, MirrorConfig } from '../../../types'
 import {
   GRID_LEVEL_MULTIPLIER,
   GRID_MIN_SCREEN_SPACING,
@@ -349,8 +349,12 @@ function smoothstep(t: number): number {
 }
 
 /**
- * Render the mirror axis line when mirroring is active
- * Draws a dashed line at x=0 (vertical) or y=0 (horizontal)
+ * Render mirror axis lines when mirroring is active.
+ * Draws dashed lines for each reflection plane in the mirror configuration.
+ * 
+ * With N planes, draws N lines through the origin at angles:
+ * startAngle, startAngle + π/N, startAngle + 2π/N, ...
+ * 
  * Uses grid color (not accent) since it's non-interactive
  */
 export function renderMirrorAxis(
@@ -360,16 +364,26 @@ export function renderMirrorAxis(
   pan: Point,
   zoom: number,
   gridColor: string = '#2a2a2a',
-  axis: MirrorAxis = 'vertical'
+  config: MirrorConfig = { planeCount: 1, startAngle: 0 },
+  showPlaneNumbers: boolean = false
 ) {
-  // Calculate visible area in world coordinates
+  const { planeCount, startAngle } = config
+  
+  if (planeCount <= 0) return
+  
+  // Calculate visible area extent (max distance from origin visible)
   const worldLeft = -pan.x / zoom
   const worldRight = (canvasWidth - pan.x) / zoom
   const worldTop = -pan.y / zoom
   const worldBottom = (canvasHeight - pan.y) / zoom
   
-  // Add some margin to ensure the line extends beyond visible area
-  const margin = 100 / zoom
+  // Calculate the maximum extent we need to draw (diagonal of visible area)
+  const maxExtent = Math.max(
+    Math.sqrt(worldLeft * worldLeft + worldTop * worldTop),
+    Math.sqrt(worldRight * worldRight + worldTop * worldTop),
+    Math.sqrt(worldLeft * worldLeft + worldBottom * worldBottom),
+    Math.sqrt(worldRight * worldRight + worldBottom * worldBottom)
+  ) + 100 / zoom // margin
   
   const uiScale = 1 / zoom
   
@@ -378,36 +392,110 @@ export function renderMirrorAxis(
   
   ctx.save()
   
-  ctx.beginPath()
-  
-  if (axis === 'vertical') {
-    // Draw vertical mirror axis line at x = 0
-    ctx.moveTo(0, worldTop - margin)
-    ctx.lineTo(0, worldBottom + margin)
-  } else {
-    // Draw horizontal mirror axis line at y = 0
-    ctx.moveTo(worldLeft - margin, 0)
-    ctx.lineTo(worldRight + margin, 0)
-  }
-  
   // Dashed line style - uses grid color with higher opacity for visibility
   ctx.setLineDash([12 * uiScale, 6 * uiScale])
   ctx.strokeStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6)`
   ctx.lineWidth = 2 * uiScale
-  ctx.stroke()
   
-  // Draw small marker near the axis
+  // Draw each reflection plane
+  const sectorAngle = Math.PI / planeCount
+  const sectorCount = 2 * planeCount
+  
+  for (let i = 0; i < planeCount; i++) {
+    const planeAngle = startAngle + i * sectorAngle
+    
+    // Line direction (perpendicular to the normal, which is the angle from Y-axis)
+    // planeAngle = 0 means horizontal line (X-axis)
+    // planeAngle = π/2 means vertical line (Y-axis)
+    const dirX = Math.cos(planeAngle)  // Direction along the line
+    const dirY = Math.sin(planeAngle)
+    
+    // Draw line from -maxExtent to +maxExtent along this direction
+    ctx.beginPath()
+    ctx.moveTo(-dirX * maxExtent, -dirY * maxExtent)
+    ctx.lineTo(dirX * maxExtent, dirY * maxExtent)
+    ctx.stroke()
+    
+    // Draw plane number label if debug mode is enabled
+    if (showPlaneNumbers) {
+      ctx.save()
+      ctx.setLineDash([])
+      const labelDist = 150 * uiScale
+      const labelX = dirX * labelDist
+      const labelY = dirY * labelDist
+      
+      // Draw plane label
+      ctx.font = `bold ${14 * uiScale}px monospace`
+      ctx.fillStyle = '#ff6600'
+      ctx.strokeStyle = '#000000'
+      ctx.lineWidth = 3 * uiScale
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      const planeLabel = `P${i}`
+      ctx.strokeText(planeLabel, labelX, labelY)
+      ctx.fillText(planeLabel, labelX, labelY)
+      
+      // Also label on the opposite side
+      ctx.strokeText(planeLabel, -labelX, -labelY)
+      ctx.fillText(planeLabel, -labelX, -labelY)
+      ctx.restore()
+    }
+  }
+  
+  // Draw sector numbers if debug mode is enabled
+  if (showPlaneNumbers) {
+    ctx.setLineDash([])
+    ctx.font = `bold ${16 * uiScale}px monospace`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    
+    const sectorLabelDist = 250 * uiScale
+    
+    for (let s = 0; s < sectorCount; s++) {
+      // Sector s is between plane s and plane (s+1) mod planeCount
+      // Its center angle is at (s + 0.5) * sectorAngle from startAngle
+      const sectorCenterAngle = startAngle + (s + 0.5) * sectorAngle
+      
+      // Convert to cartesian (angle 0 = positive x direction)
+      const labelX = Math.cos(sectorCenterAngle) * sectorLabelDist
+      const labelY = Math.sin(sectorCenterAngle) * sectorLabelDist
+      
+      // Draw sector label with different color
+      const isOdd = s % 2 === 1
+      ctx.fillStyle = isOdd ? '#ff00ff' : '#00ffff'  // Magenta for odd (reflected), cyan for even (rotated)
+      ctx.strokeStyle = '#000000'
+      ctx.lineWidth = 3 * uiScale
+      const sectorLabel = `S${s}`
+      ctx.strokeText(sectorLabel, labelX, labelY)
+      ctx.fillText(sectorLabel, labelX, labelY)
+      
+      // Add transformation type
+      ctx.font = `${10 * uiScale}px monospace`
+      let transformLabel: string
+      if (s === 0) {
+        transformLabel = '(orig)'
+      } else if (isOdd) {
+        const planeIdx = ((s + 1) / 2) % planeCount
+        transformLabel = `(refl P${planeIdx})`
+      } else {
+        const rotDeg = Math.round((s * 180) / planeCount)
+        transformLabel = `(rot ${rotDeg}°)`
+      }
+      ctx.strokeText(transformLabel, labelX, labelY + 16 * uiScale)
+      ctx.fillText(transformLabel, labelX, labelY + 16 * uiScale)
+    }
+  }
+  
+  // Draw center marker at origin
   ctx.setLineDash([])
   ctx.font = `${11 * uiScale}px system-ui, sans-serif`
   ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.8)`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   
-  if (axis === 'vertical') {
-    ctx.fillText('⧫', 0, worldTop + 30 * uiScale)
-  } else {
-    ctx.fillText('⧫', worldLeft + 30 * uiScale, 0)
-  }
+  // Use different markers based on plane count
+  const marker = planeCount === 1 ? '⧫' : '⬥'
+  ctx.fillText(marker, 0, 0)
   
   ctx.restore()
 }

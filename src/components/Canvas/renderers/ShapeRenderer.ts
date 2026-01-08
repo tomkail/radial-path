@@ -1,5 +1,5 @@
-import type { Shape, CircleShape, Point, CanvasTheme, HoverTarget, MirrorAxis } from '../../../types'
-import { getMirroredCircles, createMirroredCircle, expandMirroredCircles } from '../../../geometry/path'
+import type { Shape, CircleShape, Point, CanvasTheme, HoverTarget, MirrorConfig } from '../../../types'
+import { getMirroredCircles, getMirrorsForCircle, expandMirroredCircles } from '../../../geometry/path'
 import { drawMirrorIconCanvas, drawDeleteIconCanvas } from '../../icons/Icons'
 import { buildIdSet } from '../../../utils/objectPool'
 import {
@@ -55,7 +55,7 @@ export function renderShapes(
   theme: CanvasTheme,
   zoom: number = 1,
   shapeOrder: string[] = [],
-  mirrorAxis: MirrorAxis = 'vertical',
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 },
   measurementMode: MeasurementMode = 'clean',
   mouseWorldPos: Point | null = null
 ): Set<string> {
@@ -150,8 +150,8 @@ export function renderShapes(
   
   // Get mirrored ghost circles for circles with mirrored=true
   // Draw these on top of all regular circles so they're always visible
-  // Note: getMirroredCircles is optimized to only create objects for mirrored circles
-  const mirroredCircles = getMirroredCircles(shapes as CircleShape[], mirrorAxis)
+  // Note: getMirroredCircles filters duplicates only for first/last circles in path order
+  const mirroredCircles = getMirroredCircles(shapes as CircleShape[], mirrorConfig, shapeOrder)
   
   // Sort mirrored circles by radius (largest first) to maintain consistent draw order
   const sortedMirroredCircles = [...mirroredCircles].sort((a, b) => b.radius - a.radius)
@@ -159,8 +159,12 @@ export function renderShapes(
   for (let i = 0; i < sortedMirroredCircles.length; i++) {
     const mirrorCircle = sortedMirroredCircles[i]
     // Find the original circle to get its hover/selection state
-    // The mirrored circle's ID is `${originalId}_mirror`
-    const originalId = mirrorCircle.id.replace('_mirror', '')
+    // Mirror IDs can be: _mirror, _mirror_v, _mirror_h, or _mirror_both
+    const originalId = mirrorCircle.id
+      .replace('_mirror_both', '')
+      .replace('_mirror_v', '')
+      .replace('_mirror_h', '')
+      .replace('_mirror', '')
     const isOriginalSelected = selectedIds.includes(originalId)
     const isOriginalHovered = originalId === hoveredId
     
@@ -233,19 +237,22 @@ export function renderSelectedTangentHandles(
   closedPath: boolean = true,
   useStartPoint: boolean = true,
   useEndPoint: boolean = true,
-  mirrorAxis: MirrorAxis = 'vertical'
+  mirrorConfig: MirrorConfig = { planeCount: 1, startAngle: 0 }
 ) {
   const circles = shapes.filter((s): s is CircleShape => s.type === 'circle')
   const selectedCircles = circles.filter(c => selectedIds.includes(c.id))
   
   // Get expanded shapes and order (including mirrored circles)
-  const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorAxis)
+  const { expandedShapes, expandedOrder } = expandMirroredCircles(circles, shapeOrder, mirrorConfig)
   
   // First render ghost handles for mirrored versions of selected circles
   for (const circle of selectedCircles) {
     if (circle.mirrored) {
-      const mirroredCircle = createMirroredCircle(circle, mirrorAxis)
-      renderGhostTangentHandles(ctx, mirroredCircle, expandedShapes, expandedOrder, theme, zoom, closedPath, useStartPoint, useEndPoint)
+      // Get all mirrors for this circle using the generic system
+      const mirrors = getMirrorsForCircle(circle, mirrorConfig, false)
+      for (const mirror of mirrors) {
+        renderGhostTangentHandles(ctx, mirror, expandedShapes, expandedOrder, theme, zoom, closedPath, useStartPoint, useEndPoint)
+      }
     }
   }
   

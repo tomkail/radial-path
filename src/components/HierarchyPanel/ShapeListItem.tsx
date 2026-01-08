@@ -5,6 +5,7 @@ import { useDocumentStore } from '../../stores/documentStore'
 import { useSelectionStore } from '../../stores/selectionStore'
 import { FlipHorizontal2 as MirrorIcon, X as DeleteIcon } from 'lucide-react'
 import type { Shape, CircleShape } from '../../types'
+import { MIN_CIRCLES } from '../../constants'
 import styles from './HierarchyPanel.module.css'
 
 interface ShapeListItemProps {
@@ -171,9 +172,9 @@ export function ShapeListItem({ shape }: ShapeListItemProps) {
   const isEntryTangentLengthDefault = entryTangentLength === 1.0
   const isExitTangentLengthDefault = exitTangentLength === 1.0
   
-  // Can only delete if more than 2 circles exist (must keep at least 2)
+  // Can only delete if more than MIN_CIRCLES exist (must keep at least MIN_CIRCLES)
   const circleCount = shapes.filter(s => s.type === 'circle').length
-  const canDelete = circleCount > 2
+  const canDelete = circleCount > MIN_CIRCLES
   
   return (
     <div
