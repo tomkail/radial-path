@@ -84,9 +84,6 @@ export function constrainToNearestAxis(delta: Point, constraintAxes: number[]): 
     }
   }
   
-  // Calculate the magnitude of the original movement
-  const magnitude = Math.sqrt(delta.x * delta.x + delta.y * delta.y)
-  
   // Project the movement onto the closest axis
   // We need to determine which direction along the axis (+ or -) matches the movement better
   const cos1 = Math.cos(closestAxis)
