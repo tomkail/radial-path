@@ -17,6 +17,7 @@ import {
 } from './renderers/ShapeRenderer'
 import { snapPointToGrid, snapToGrid, distance, angle, normalize, subtract } from '../../geometry/math'
 import { expandMirroredCircles, findPathSegmentAt, findClosestPointOnPath, calculateNonOverlappingRadius } from '../../geometry/path'
+import { calculateConstraintAxes, constrainToNearestAxis } from '../../geometry/axisConstraint'
 import type { Point, CircleShape, DragMode, HoverTarget, MarqueeMode, Rect } from '../../types'
 import {
   HANDLE_TOLERANCE,
@@ -141,6 +142,7 @@ export function useCanvasInteraction(
   const setActiveGuides = useSelectionStore(state => state.setActiveGuides)
   const clearActiveGuides = useSelectionStore(state => state.clearActiveGuides)
   const setMouseWorldPos = useSelectionStore(state => state.setMouseWorldPos)
+  const modifierKeys = useSelectionStore(state => state.modifierKeys)
   const setModifierKeys = useSelectionStore(state => state.setModifierKeys)
   
   const snapToGridEnabled = useSettingsStore(state => state.snapToGrid)
@@ -150,6 +152,12 @@ export function useCanvasInteraction(
   const circles = useMemo(
     () => shapes.filter((s): s is CircleShape => s.type === 'circle'),
     [shapes]
+  )
+  
+  // Memoize constraint axes based on mirror configuration
+  const constraintAxes = useMemo(
+    () => calculateConstraintAxes(mirrorConfig),
+    [mirrorConfig]
   )
   
   // Track space key state for panning
@@ -353,8 +361,8 @@ export function useCanvasInteraction(
           undefined,
           `Circle ${circleCount + 1}`
         ),
-        // Inherit mirror setting from closest circle
-        mirrored: closestCircle?.mirrored
+        // New circles have mirroring enabled by default
+        mirrored: closestCircle?.mirrored ?? true
       }
       
       // Insert at the correct position in the path order
@@ -385,8 +393,8 @@ export function useCanvasInteraction(
         undefined,
         `Circle ${circleCount + 1}`
       ),
-      // Inherit mirror setting from closest circle
-      mirrored: closestCircle?.mirrored
+      // New circles have mirroring enabled by default
+      mirrored: closestCircle?.mirrored ?? true
     }
     
     // Insert at the appropriate position in the path order
@@ -897,8 +905,8 @@ export function useCanvasInteraction(
         if (dragState.shapeStarts && dragState.shapeStarts.size > 0) {
           let snapOffset = { x: 0, y: 0 }
           
-          // Compute smart guides if enabled
-          if (smartGuidesEnabled) {
+          // Compute smart guides if enabled (but not when axis-constrained)
+          if (smartGuidesEnabled && !e.shiftKey) {
             // Build preview positions for smart guides
             const draggedCirclesPreviews: CircleShape[] = []
             const draggedIds = new Set(dragState.shapeStarts.keys())
@@ -952,8 +960,8 @@ export function useCanvasInteraction(
             y: dragState.startCenter.y + dy
           }
           
-          // Compute smart guides if enabled
-          if (smartGuidesEnabled) {
+          // Compute smart guides if enabled (but not when axis-constrained)
+          if (smartGuidesEnabled && !e.shiftKey) {
             // Get the dragged circle with preview position
             const draggedCircle = circles.find(c => c.id === dragState.shapeId)
             if (draggedCircle) {

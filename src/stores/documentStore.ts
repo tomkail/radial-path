@@ -23,7 +23,7 @@ export const MIRROR_PRESETS: { name: string; config: MirrorConfig }[] = [
   { name: '2-way (vertical)', config: { planeCount: 1, startAngle: Math.PI / 2 } }, // Y-axis reflection (left-right symmetry)
   { name: '2-way (horizontal)', config: { planeCount: 1, startAngle: 0 } }, // X-axis reflection (up-down symmetry)
   { name: '4-way', config: { planeCount: 2, startAngle: 0 } },
-  { name: '6-way', config: { planeCount: 3, startAngle: 0 } },
+  { name: '6-way', config: { planeCount: 3, startAngle: Math.PI / 2 } }, // Rotated 90 degrees
   { name: '8-way', config: { planeCount: 4, startAngle: 0 } },
 ]
 
